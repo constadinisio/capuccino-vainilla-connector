@@ -1,31 +1,9 @@
-# Credenciales y estado local
-.env
-.env.*
-!.env.example
-!.env.test.example
-.sync_state.json
-*.log
-
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.eggs/
-build/
-dist/
 .venv/
-venv/
-
-# Testing / tooling
-.pytest_cache/
-.coverage
-htmlcov/
-coverage.xml
-.mypy_cache/
-.ruff_cache/
-
-# Editores / SO
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
+__pycache__/
+*.pyc
+.env
+.env.seed
+sync.log
+seed.log
+.sync_state.json
+.seed_state.json
