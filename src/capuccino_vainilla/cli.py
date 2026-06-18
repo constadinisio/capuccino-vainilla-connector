@@ -137,6 +137,12 @@ def main(argv: list[str] | None = None) -> int:
 
     setup_logging(config.runtime.log_level, config.runtime.log_file)
 
+    print(
+        f"⚙️  Objetivo resuelto → Odoo: {config.odoo.url} (db={config.odoo.db}) | "
+        f"WooCommerce: {config.woo.url}",
+        file=sys.stderr,
+    )
+
     try:
         if args.command == "sync-catalog":
             return _cmd_sync_catalog(config, args)

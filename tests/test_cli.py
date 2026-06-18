@@ -1,5 +1,61 @@
 from capuccino_vainilla.cli import main
-from capuccino_vainilla.config import ConfigError
+from capuccino_vainilla.config import (
+    AppConfig,
+    ConfigError,
+    OdooConfig,
+    RuntimeConfig,
+    WebhookConfig,
+    WooConfig,
+)
+
+
+def _fake_config() -> AppConfig:
+    """AppConfig con valores reconocibles para los tests del banner."""
+    return AppConfig(
+        odoo=OdooConfig(
+            url="https://odoo.example",
+            db="pinnacle_test",
+            username="admin",
+            password="secret",
+        ),
+        woo=WooConfig(
+            url="http://localhost:8080",
+            consumer_key="ck_test",
+            consumer_secret="cs_test",
+            api_version="wc/v3",
+            verify_ssl=False,
+            timeout=30,
+        ),
+        webhook=WebhookConfig(
+            secret="wh_secret",
+            path="/webhooks/woocommerce/orders",
+            host="0.0.0.0",
+            port=8000,
+        ),
+        runtime=RuntimeConfig(
+            batch_size=50,
+            max_retries=3,
+            retry_delay=2.0,
+            log_level="INFO",
+            log_file="sync.log",
+            state_file=".sync_state.json",
+        ),
+    )
+
+
+def test_banner_muestra_objetivos_resueltos(monkeypatch, capsys):
+    """Al arrancar, main() debe imprimir en stderr el Odoo URL, db y Woo URL resueltos."""
+    monkeypatch.setattr("capuccino_vainilla.cli.load_config", lambda env_file=None: _fake_config())
+    monkeypatch.setattr("capuccino_vainilla.cli.setup_logging", lambda *a, **kw: None)
+    monkeypatch.setattr("capuccino_vainilla.cli._cmd_sync_catalog", lambda config, args: 0)
+
+    rc = main(["sync-catalog"])
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "https://odoo.example" in captured.err
+    assert "pinnacle_test" in captured.err
+    assert "http://localhost:8080" in captured.err
 
 
 def test_env_file_flag_se_pasa_a_load_config(monkeypatch):

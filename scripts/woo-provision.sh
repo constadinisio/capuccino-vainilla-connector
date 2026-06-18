@@ -18,13 +18,14 @@ $WP core install \
   --skip-email || true
 
 echo "==> Ajustando permisos de wp-content para el usuario woo-cli (uid 82)..."
+# Permiso amplio deliberado: el contenedor es local y descartable; resuelve el desajuste de uid entre woo-cli y apache.
 MSYS_NO_PATHCONV=1 docker compose --profile woo exec -T woo chmod -R 777 /var/www/html/wp-content
 
 echo "==> Instalando y activando WooCommerce..."
 $WP plugin install woocommerce --activate
 
 echo "==> Instalando mu-plugin para Basic Auth sobre HTTP..."
-MSYS_NO_PATHCONV=1 docker compose --profile woo exec woo mkdir -p /var/www/html/wp-content/mu-plugins
+MSYS_NO_PATHCONV=1 docker compose --profile woo exec -T woo mkdir -p /var/www/html/wp-content/mu-plugins
 docker compose --profile woo cp scripts/woo-force-ssl.php woo:/var/www/html/wp-content/mu-plugins/woo-force-ssl.php
 
 echo "==> Fijando permalinks 'pretty' (requerido por la REST API)..."

@@ -51,7 +51,7 @@ Todos los comandos de la CLI usan el `.env.test` con el flag global `--env-file`
   la entrega del webhook figura `201` en Woo.
 
 ## Paso 9 — Flujo 2 (firma inválida)
-- [ ] `curl -X POST http://localhost:8000/webhooks/woocommerce/orders -H "X-WC-Webhook-Signature: malo" -d '{}'`
+- [ ] `curl -X POST http://localhost:8000/webhooks/woocommerce/orders -H "X-WC-Webhook-Signature: malo" -H "Content-Type: application/json" -d '{}'`
 - Criterio: responde `401`; no se crea nada en Odoo.
 
 ## Paso 10 — Flujo 2 (pedido no mapeable)
