@@ -1,0 +1,27 @@
+# Orquestación local del conector.
+#   docker compose up webhook            -> levanta el servidor de webhooks
+#   docker compose run --rm sync         -> corre una sincronización de catálogo
+services:
+  webhook:
+    build: .
+    image: capuccino-vainilla:latest
+    env_file: .env
+    command: ["serve"]
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/health').status==200 else sys.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Servicio bajo demanda para sincronizar el catálogo (no se levanta con `up`).
+  sync:
+    build: .
+    image: capuccino-vainilla:latest
+    env_file: .env
+    command: ["sync-catalog"]
+    profiles: ["tools"]
+    restart: "no"

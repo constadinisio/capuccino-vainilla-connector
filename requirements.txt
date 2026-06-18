@@ -1,0 +1,7 @@
+# Dependencias de runtime. Fuente de verdad: pyproject.toml.
+# Instalación recomendada (paquete + extras): pip install -e ".[dev]"
+woocommerce>=3.0.0
+python-dotenv>=1.0.1
+requests>=2.32.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0

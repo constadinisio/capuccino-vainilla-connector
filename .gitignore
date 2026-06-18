@@ -1,0 +1,28 @@
+# Credenciales y estado local
+.env
+.sync_state.json
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Testing / tooling
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+
+# Editores / SO
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

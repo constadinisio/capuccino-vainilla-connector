@@ -1,0 +1,46 @@
+{
+  "id": 7421,
+  "number": "7421",
+  "status": "processing",
+  "currency": "ARS",
+  "date_created": "2026-06-18T10:35:00",
+  "billing": {
+    "first_name": "Lucía",
+    "last_name": "Gómez",
+    "company": "Estudio Audiovisual Pinnacle",
+    "address_1": "Av. Corrientes 1234",
+    "address_2": "Piso 5, Of. B",
+    "city": "Ciudad Autónoma de Buenos Aires",
+    "postcode": "C1043",
+    "country": "AR",
+    "email": "lucia.gomez@ejemplo.com",
+    "phone": "+54 11 5555-1234"
+  },
+  "shipping": {
+    "first_name": "Lucía",
+    "last_name": "Gómez",
+    "address_1": "Av. Corrientes 1234",
+    "address_2": "Piso 5, Of. B",
+    "city": "Ciudad Autónoma de Buenos Aires",
+    "postcode": "C1043",
+    "country": "AR"
+  },
+  "line_items": [
+    {
+      "name": "Cámara Profesional 4K HDMI",
+      "product_id": 101,
+      "sku": "CAM-4K-001",
+      "quantity": 1,
+      "price": "850000.00",
+      "total": "850000.00"
+    },
+    {
+      "name": "Micrófono de Cañón Direccional",
+      "product_id": 205,
+      "sku": "MIC-CAN-205",
+      "quantity": 2,
+      "price": "120000.00",
+      "total": "228000.00"
+    }
+  ]
+}

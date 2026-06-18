@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Capuccino Vainilla — Visor del Conector</title>
+<style>
+  :root {
+    --bg: #1c1714;
+    --panel: #2a221d;
+    --panel-2: #332a23;
+    --line: #463a31;
+    --text: #f3e9df;
+    --muted: #b6a392;
+    --cream: #e7c89b;
+    --coffee: #c08457;
+    --green: #6cc070;
+    --red: #e06c6c;
+    --amber: #e0b86c;
+    --radius: 12px;
+    --shadow: 0 6px 22px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    font-size: 14px; line-height: 1.5;
+  }
+  header {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 16px 24px; background: linear-gradient(120deg, #2a221d, #201915);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5;
+  }
+  .brand { font-size: 18px; font-weight: 700; letter-spacing: .3px; }
+  .brand span { color: var(--cream); }
+  .brand small { display:block; font-size:11px; color: var(--muted); font-weight:400; letter-spacing:1px; text-transform: uppercase; }
+  .pills { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+  .pill {
+    display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; font-size: 13px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+  .dot.ok { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.bad { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .pill .meta { color: var(--muted); font-size: 11px; }
+  main { padding: 24px; max-width: 1320px; margin: 0 auto; display: grid; gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .card > h2 {
+    margin: 0; padding: 14px 18px; font-size: 14px; letter-spacing: .4px;
+    border-bottom: 1px solid var(--line); background: var(--panel-2);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card > h2 .flow { font-size: 11px; color: var(--bg); background: var(--cream); padding: 2px 8px; border-radius: 6px; font-weight: 700; }
+  .card-body { padding: 18px; }
+  .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  label.inline { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  input[type="number"] { width: 80px; background: var(--bg); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 8px; }
+  button {
+    background: var(--coffee); color: #1c1714; border: none; border-radius: 8px;
+    padding: 8px 16px; font-weight: 600; cursor: pointer; transition: filter .15s, opacity .15s;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .55; cursor: progress; }
+  button.ghost { background: transparent; color: var(--cream); border: 1px solid var(--line); }
+  .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 86px; }
+  .chip b { display: block; font-size: 20px; color: var(--cream); }
+  .chip span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+  .subtitle { font-size: 12px; color: var(--muted); margin: 0 0 8px; display:flex; justify-content: space-between; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  td.name { white-space: normal; max-width: 220px; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); }
+  .tag.match { color: var(--green); border-color: var(--green); }
+  .tag.only { color: var(--amber); border-color: var(--amber); }
+  .table-wrap { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .orders { display: grid; gap: 10px; }
+  .order { display: flex; align-items: center; gap: 14px; padding: 12px 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; flex-wrap: wrap; }
+  .order .num { font-weight: 700; color: var(--cream); }
+  .order .st { font-size: 11px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+  .order .res { font-size: 12px; color: var(--green); margin-left: auto; }
+  .order .res.err { color: var(--red); }
+  pre#log { margin: 0; background: #15110e; border: 1px solid var(--line); border-radius: 8px; padding: 14px; max-height: 320px; overflow: auto; font-size: 12px; color: #d8c9b8; white-space: pre-wrap; }
+  .empty { color: var(--muted); padding: 18px; text-align: center; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel-2); border: 1px solid var(--line); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); opacity: 0; transform: translateY(10px); transition: .25s; z-index: 20; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.err { border-color: var(--red); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">☕ Capuccino Vainilla <span>· Conector</span><small>Odoo ⇄ WooCommerce — Pinnacle</small></div>
+  <div class="pills">
+    <div class="pill"><span class="dot" id="odoo-dot"></span> Odoo <span class="meta" id="odoo-meta">verificando…</span></div>
+    <div class="pill"><span class="dot" id="woo-dot"></span> WooCommerce <span class="meta" id="woo-meta">verificando…</span></div>
+    <button class="ghost" onclick="refreshAll()">↻ Actualizar</button>
+  </div>
+</header>
+
+<main>
+  <!-- FLUJO 1 -->
+  <section class="card">
+    <h2><span class="flow">FLUJO 1</span> Catálogo · Odoo → WooCommerce</h2>
+    <div class="card-body">
+      <div class="controls">
+        <label class="inline">Límite <input type="number" id="sync-limit" value="10" min="1" /></label>
+        <label class="inline"><input type="checkbox" id="sync-full" /> Completo (ignora límite)</label>
+        <button id="btn-sync" onclick="runSync()">▶ Sincronizar catálogo</button>
+        <button class="ghost" onclick="loadCatalog()">↻ Recargar listas</button>
+      </div>
+      <div class="chips" id="report" style="display:none"></div>
+      <div class="grid2">
+        <div>
+          <p class="subtitle"><span>Productos en Odoo (origen)</span><span id="odoo-count"></span></p>
+          <div class="table-wrap"><table id="odoo-table"><tbody><tr><td class="empty">—</td></tr></tbody></table></div>
+        </div>
+        <div>
+          <p class="subtitle"><span>Productos en WooCommerce (destino)</span><span id="woo-count"></span></p>
+          <div class="table-wrap"><table id="woo-table"><tbody><tr><td class="empty">—</td></tr></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FLUJO 2 -->
+  <section class="card">
+    <h2><span class="flow">FLUJO 2</span> Pedidos · WooCommerce → Odoo</h2>
+    <div class="card-body">
+      <div class="controls">
+        <button class="ghost" onclick="loadOrders()">↻ Cargar pedidos recientes</button>
+        <span class="meta" style="color:var(--muted)">Importá un pedido real de la tienda como orden de venta en Odoo.</span>
+      </div>
+      <div class="orders" id="orders"><div class="empty">Cargá los pedidos recientes para verlos acá.</div></div>
+    </div>
+  </section>
+
+  <!-- LOGS -->
+  <section class="card">
+    <h2>🪵 Actividad del backend (log en vivo)</h2>
+    <div class="card-body">
+      <div class="controls">
+        <button class="ghost" onclick="loadLogs()">↻ Refrescar log</button>
+        <label class="inline"><input type="checkbox" id="log-auto" onchange="toggleAutoLog()" /> Auto cada 5s</label>
+      </div>
+      <pre id="log">—</pre>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let logTimer = null;
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  return { status: res.status, data };
+}
+
+function toast(msg, isErr) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (isErr ? " err" : "");
+  setTimeout(() => (t.className = "toast"), 3200);
+}
+
+function fmtMoney(v) { return (v === null || v === undefined || v === "") ? "—" : v; }
+
+// ---- Salud / conexión ----
+async function loadHealth() {
+  const { data } = await api("/api/health");
+  setPill("odoo", data.odoo);
+  setPill("woo", data.woo);
+}
+function setPill(key, info) {
+  if (!info) return;
+  $(`${key}-dot`).className = "dot " + (info.ok ? "ok" : "bad");
+  $(`${key}-meta`).textContent = info.ok ? info.detail : ("✕ " + (info.detail || "sin conexión"));
+  $(`${key}-meta`).title = info.url || "";
+}
+
+// ---- Flujo 1: catálogo ----
+async function loadCatalog() {
+  const limit = parseInt($("sync-limit").value || "10", 10);
+  const [odoo, woo] = await Promise.all([
+    api(`/api/odoo/products?limit=${limit}`),
+    api(`/api/woo/products?per_page=${limit}`),
+  ]);
+  const odooItems = odoo.data.ok ? odoo.data.items : [];
+  const wooItems = woo.data.ok ? woo.data.items : [];
+  const wooSkus = new Set(wooItems.map((p) => (p.sku || "").trim()).filter(Boolean));
+  const odooSkus = new Set(odooItems.map((p) => (p.sku || "").trim()).filter(Boolean));
+
+  renderOdoo(odooItems, wooSkus, odoo.data);
+  renderWoo(wooItems, odooSkus, woo.data);
+}
+
+function renderOdoo(items, wooSkus, raw) {
+  $("odoo-count").textContent = items.length ? `${items.length} mostrados` : "";
+  const tb = $("odoo-table").querySelector("tbody");
+  if (!raw.ok) { tb.innerHTML = `<tr><td class="empty">⚠ ${raw.error || "Error de conexión"}</td></tr>`; return; }
+  if (!items.length) { tb.innerHTML = `<tr><td class="empty">Sin productos vendibles.</td></tr>`; return; }
+  tb.innerHTML = `<tr><th>SKU</th><th>Nombre</th><th>Precio</th><th>Stock</th><th>Attrs</th><th>Acc.</th><th></th></tr>` +
+    items.map((p) => {
+      const match = p.sku && wooSkus.has(p.sku.trim());
+      return `<tr>
+        <td>${p.sku || "—"}</td>
+        <td class="name">${esc(p.name)}</td>
+        <td>${fmtMoney(p.price)}</td>
+        <td>${p.qty}</td>
+        <td>${p.n_attributes}</td>
+        <td>${p.n_accessories}</td>
+        <td>${p.sku ? `<span class="tag ${match ? "match" : "only"}">${match ? "en Woo" : "solo Odoo"}</span>` : ""}</td>
+      </tr>`;
+    }).join("");
+}
+
+function renderWoo(items, odooSkus, raw) {
+  $("woo-count").textContent = items.length ? `${items.length} mostrados` : "";
+  const tb = $("woo-table").querySelector("tbody");
+  if (!raw.ok) { tb.innerHTML = `<tr><td class="empty">⚠ ${raw.error || "Error de conexión"}</td></tr>`; return; }
+  if (!items.length) { tb.innerHTML = `<tr><td class="empty">Sin productos en la tienda.</td></tr>`; return; }
+  tb.innerHTML = `<tr><th>SKU</th><th>Nombre</th><th>Precio</th><th>Stock</th><th>Odoo ID</th></tr>` +
+    items.map((p) => `<tr>
+      <td>${p.sku || "—"}</td>
+      <td class="name">${esc(p.name)}</td>
+      <td>${fmtMoney(p.price)}</td>
+      <td>${p.stock ?? "—"}</td>
+      <td>${p.odoo_id ? `<span class="tag match">#${p.odoo_id}</span>` : `<span class="tag only">sin meta</span>`}</td>
+    </tr>`).join("");
+}
+
+async function runSync() {
+  const btn = $("btn-sync");
+  btn.disabled = true; btn.textContent = "Sincronizando…";
+  const body = { full: $("sync-full").checked, limit: parseInt($("sync-limit").value || "10", 10) };
+  const { data } = await api("/api/sync/catalog", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  btn.disabled = false; btn.textContent = "▶ Sincronizar catálogo";
+  if (!data.ok) { toast("Error: " + (data.error || "fallo de sincronización"), true); return; }
+  renderReport(data.report);
+  toast("Sincronización completada ✓");
+  await loadCatalog();
+  await loadLogs();
+}
+
+function renderReport(r) {
+  const box = $("report");
+  box.style.display = "flex";
+  const chip = (label, val) => `<div class="chip"><b>${val}</b><span>${label}</span></div>`;
+  box.innerHTML = chip("Total", r.total) + chip("Creados", r.created) + chip("Actualizados", r.updated) +
+    chip("Omitidos", r.skipped) + chip("Fallidos", r.failed) + chip("Cross-sell", r.cross_sells_linked);
+}
+
+// ---- Flujo 2: pedidos ----
+async function loadOrders() {
+  const { data } = await api("/api/woo/orders?per_page=10");
+  const box = $("orders");
+  if (!data.ok) { box.innerHTML = `<div class="empty">⚠ ${data.error || "Error de conexión"}</div>`; return; }
+  if (!data.items.length) { box.innerHTML = `<div class="empty">No hay pedidos en la tienda.</div>`; return; }
+  box.innerHTML = data.items.map((o) => `
+    <div class="order" id="order-${o.id}">
+      <span class="num">#${o.number || o.id}</span>
+      <span class="st">${o.status}</span>
+      <span>${o.items.length} ítem(s) · ${esc(o.email)}</span>
+      <span>${fmtMoney(o.total)} ${o.currency || ""}</span>
+      <button onclick="importOrder(${o.id})">→ Importar a Odoo</button>
+      <span class="res" id="res-${o.id}"></span>
+    </div>`).join("");
+}
+
+async function importOrder(id) {
+  const res = $(`res-${id}`);
+  res.className = "res"; res.textContent = "importando…";
+  const { data } = await api(`/api/woo/orders/${id}/import`, { method: "POST" });
+  if (!data.ok) { res.className = "res err"; res.textContent = "✕ " + (data.error || "error"); return; }
+  res.className = "res"; res.textContent = `✓ sale.order #${data.result.sale_order_id}`;
+  toast(`Pedido #${id} importado a Odoo ✓`);
+  await loadLogs();
+}
+
+// ---- Logs ----
+async function loadLogs() {
+  const { data } = await api("/api/logs?tail=120");
+  $("log").textContent = (data.lines && data.lines.length) ? data.lines.join("\n") : "(log vacío)";
+  $("log").scrollTop = $("log").scrollHeight;
+}
+function toggleAutoLog() {
+  if ($("log-auto").checked) { logTimer = setInterval(loadLogs, 5000); }
+  else { clearInterval(logTimer); logTimer = null; }
+}
+
+// ---- util ----
+function esc(s) { return (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+
+async function refreshAll() {
+  await loadHealth();
+  await loadCatalog();
+  await loadLogs();
+}
+
+// init
+refreshAll();
+setInterval(loadHealth, 8000);
+</script>
+</body>
+</html>
