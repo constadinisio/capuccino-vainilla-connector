@@ -111,10 +111,10 @@ class ProductSeeder:
             }))
         return commands
 
-    def seed_products(self, maps: AttributeMaps) -> dict[int, int]:
+    def seed_products(self, maps: AttributeMaps, *, limit: int | None = None) -> dict[int, int]:
         template_map: dict[int, int] = {}
         products = self._src.search_read(
-            "product.template", [], ODOO_PRODUCT_FIELDS, order="id",
+            "product.template", [], ODOO_PRODUCT_FIELDS, limit=limit, order="id",
         )
         for prod in products:
             sku = prod.get("default_code")
@@ -155,14 +155,15 @@ class ProductSeeder:
             "product.template", [], ["id", "optional_product_ids"],
         )
         for row in rows:
+            src_id = int(row["id"])
             src_opts = row.get("optional_product_ids") or []
-            if not src_opts or int(row["id"]) not in template_map:
+            if not src_opts or src_id not in template_map:
                 continue
             dst_opts = [template_map[o] for o in src_opts if o in template_map]
             if not dst_opts:
                 continue
             self._dst.write(
-                "product.template", [template_map[int(row["id"])]],
+                "product.template", [template_map[src_id]],
                 {"optional_product_ids": [(6, 0, dst_opts)]},
             )
             self.report.cross_sells_linked += 1
@@ -171,6 +172,6 @@ class ProductSeeder:
     def run(self, *, limit: int | None = None) -> SeedReport:
         """Orquesta las tres pasadas y devuelve el reporte."""
         maps = self.seed_attributes()
-        template_map = self.seed_products(maps)
+        template_map = self.seed_products(maps, limit=limit)
         self.seed_cross_sells(template_map)
         return self.report

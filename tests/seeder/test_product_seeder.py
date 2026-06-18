@@ -154,3 +154,55 @@ def test_seed_cross_sells_links_remapped_templates():
              if r["default_code"] == "A-1"][0]
     assert dst_a["optional_product_ids"] == [(6, 0, [tmpl_map[2]])]
     assert seeder.report.cross_sells_linked == 1
+
+
+def test_seed_cross_sells_skips_optional_not_in_template_map():
+    """Venta cruzada apunta a un producto sin SKU → se omite la relación."""
+    # Producto A referencia a producto 2, pero 2 no tiene SKU y no entrará en template_map.
+    source = FakeOdoo({
+        "product.template": [
+            {"id": 1, "name": "A", "default_code": "A-1", "list_price": 10.0,
+             "description_sale": "", "qty_available": 0.0,
+             "attribute_line_ids": [], "optional_product_ids": [2]},
+            {"id": 2, "name": "Sin SKU", "default_code": False, "list_price": 5.0,
+             "description_sale": "", "qty_available": 0.0,
+             "attribute_line_ids": [], "optional_product_ids": []},
+        ],
+    })
+    target = FakeOdoo()
+    seeder = ProductSeeder(source, target)
+    maps = seeder.seed_attributes()
+    tmpl_map = seeder.seed_products(maps)
+    seeder.seed_cross_sells(tmpl_map)
+
+    # El producto 2 no tiene SKU → no está en template_map → la venta cruzada se omite.
+    assert seeder.report.cross_sells_linked == 0
+    # No se escribió ningún optional_product_ids en destino.
+    optional_writes = [
+        c for c in target.write_calls
+        if "optional_product_ids" in c[2]
+    ]
+    assert optional_writes == []
+
+
+def test_seed_products_with_limit_seeds_only_n_products():
+    """limit=1 sobre 2 productos en origen → solo 1 producto en destino."""
+    source = FakeOdoo({
+        "product.template": [
+            {"id": 1, "name": "A", "default_code": "A-1", "list_price": 10.0,
+             "description_sale": "", "qty_available": 0.0,
+             "attribute_line_ids": [], "optional_product_ids": []},
+            {"id": 2, "name": "B", "default_code": "B-1", "list_price": 20.0,
+             "description_sale": "", "qty_available": 0.0,
+             "attribute_line_ids": [], "optional_product_ids": []},
+        ],
+    })
+    target = FakeOdoo()
+    seeder = ProductSeeder(source, target)
+    maps = seeder.seed_attributes()
+    tmpl_map = seeder.seed_products(maps, limit=1)
+
+    # Solo el primer producto (por orden de id) debe haberse copiado.
+    assert len(target.tables["product.template"]) == 1
+    assert len(tmpl_map) == 1
+    assert seeder.report.products_created == 1
