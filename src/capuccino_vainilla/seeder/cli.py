@@ -32,6 +32,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--env-file", default=".env.seed",
                         help="Ruta al .env.seed (default: .env.seed).")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Tope de productos a copiar (útil para pruebas).")
     parser.add_argument("--yes", action="store_true",
                         help="No pedir confirmación interactiva.")
     args = parser.parse_args(argv)
@@ -50,12 +52,12 @@ def main(argv: list[str] | None = None) -> int:
     if not args.yes:
         if input("¿Continuar? [s/N] ").strip().lower() not in {"s", "si", "sí"}:
             print("Cancelado.")
-            return 1
+            return 3  # User abort (distinct from seed failure)
 
     try:
         source = ReadOnlyOdoo(OdooClient(cfg.source, _RUNTIME, log))
         target = OdooClient(cfg.target, _RUNTIME, log)
-        report = ProductSeeder(source, target, log).run()
+        report = ProductSeeder(source, target, log).run(limit=args.limit)
     except ConnectorError as exc:
         print(f"El seed falló: {exc}", file=sys.stderr)
         return 1
