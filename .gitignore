@@ -7,3 +7,9 @@ sync.log
 seed.log
 .sync_state.json
 .seed_state.json
+*.egg-info/
+htmlcov/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

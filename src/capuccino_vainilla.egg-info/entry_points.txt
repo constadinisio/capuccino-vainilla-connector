@@ -1,2 +1,0 @@
-[console_scripts]
-capuccino-vainilla = capuccino_vainilla.cli:main
