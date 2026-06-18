@@ -12,6 +12,7 @@ class StubCatalog:
 
     def __init__(self):
         self.failed = 0
+        self.unpublish_return = None  # None => devuelve len(skus); int => fuerza ese valor
         self.run_calls: list[list[int]] = []
         self.unpublish_calls: list[list[str]] = []
 
@@ -21,7 +22,7 @@ class StubCatalog:
 
     def unpublish(self, skus) -> int:
         self.unpublish_calls.append(list(skus))
-        return len(skus)
+        return self.unpublish_return if self.unpublish_return is not None else len(skus)
 
 
 def _tmpl(tid, sku, sale_ok=True, qty=5, price=10.0, wd="2026-01-01 00:00:00"):
@@ -96,3 +97,22 @@ def test_snapshot_not_advanced_when_sync_fails(fake_odoo, tmp_path):
     svc.run_once()  # se reintenta y ahora sí avanza
     assert catalog.run_calls[-1] == [1]
     assert SnapshotStore(store_path).load()[1]["price"] == 99.0
+
+
+def test_disappeared_ids_retried_when_unpublish_partial(fake_odoo, tmp_path):
+    fake_odoo.db = {"product.template": [_tmpl(1, "A"), _tmpl(2, "B")]}
+    catalog = StubCatalog()
+    store_path = str(tmp_path / "snap.json")
+    svc = WatchService(ChangeDetector(fake_odoo), catalog, SnapshotStore(store_path))
+    svc.run_once()  # bootstrap
+
+    # archivar B; forzar que unpublish falle (devuelve 0)
+    next(r for r in fake_odoo.db["product.template"] if r["id"] == 2)["sale_ok"] = False
+    catalog.unpublish_return = 0
+    svc.run_once()
+    assert 2 in SnapshotStore(store_path).load()  # sigue trackeado para reintentar
+
+    # ahora unpublish funciona -> se quita del snapshot
+    catalog.unpublish_return = None
+    svc.run_once()
+    assert 2 not in SnapshotStore(store_path).load()

@@ -58,13 +58,14 @@ class WatchService:
             "Cambios: %s a actualizar, %s a despublicar.",
             len(changes.changed_ids), len(changes.disappeared_ids),
         )
+        next_snapshot = dict(self._snapshot)  # copia: no mutamos el snapshot vigente
         dirty = False
 
         if changes.changed_ids:
             report = self._catalog.run(ids=changes.changed_ids)
             if report.failed == 0:
                 for i in changes.changed_ids:
-                    self._snapshot[i] = current[i]
+                    next_snapshot[i] = current[i]
                 dirty = True
             else:
                 self._log.warning(
@@ -72,6 +73,9 @@ class WatchService:
                 )
 
         if changes.disappeared_ids:
+            # Los productos sin SKU nunca se publicaron en Woo (el sync los omite),
+            # así que no hay nada que despublicar; igual dejamos de trackearlos.
+            # Solo avanzamos cuando se despublicaron todos los que sí tenían SKU.
             skus = [
                 self._snapshot[i]["sku"]
                 for i in changes.disappeared_ids
@@ -80,9 +84,12 @@ class WatchService:
             unpublished = self._catalog.unpublish(skus)
             if unpublished == len(skus):
                 for i in changes.disappeared_ids:
-                    self._snapshot.pop(i, None)
+                    next_snapshot.pop(i, None)
                 dirty = True
 
         if dirty:
+            self._snapshot = next_snapshot
             self._store.save(self._snapshot)
-        return WatchCycle(changed=len(changes.changed_ids), disappeared=len(changes.disappeared_ids))
+        return WatchCycle(
+            changed=len(changes.changed_ids), disappeared=len(changes.disappeared_ids)
+        )
