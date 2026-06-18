@@ -7,6 +7,13 @@ import pytest
 from capuccino_vainilla.config import load_config
 from capuccino_vainilla.exceptions import ConfigError
 
+
+@pytest.fixture(autouse=True)
+def _no_dotenv(monkeypatch):
+    """Aísla los tests de cualquier .env presente en el árbol del repo."""
+    monkeypatch.setattr("capuccino_vainilla.config.load_dotenv", lambda *a, **k: False)
+
+
 REQUIRED = {
     "ODOO_URL": "https://odoo.test",
     "ODOO_DB": "capuccino",
