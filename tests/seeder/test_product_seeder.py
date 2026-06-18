@@ -131,3 +131,26 @@ def test_seed_products_skips_attribute_line_with_all_unmapped_values():
     assert dst_products[0]["default_code"] == "REM-002"
     # Pero no se generó ninguna línea de atributo (todos los valores eran no mapeados)
     assert dst_products[0]["attribute_line_ids"] == []
+
+
+def test_seed_cross_sells_links_remapped_templates():
+    source = FakeOdoo({
+        "product.template": [
+            {"id": 1, "name": "A", "default_code": "A-1", "list_price": 10.0,
+             "description_sale": "", "qty_available": 0.0,
+             "attribute_line_ids": [], "optional_product_ids": [2]},
+            {"id": 2, "name": "B", "default_code": "B-1", "list_price": 20.0,
+             "description_sale": "", "qty_available": 0.0,
+             "attribute_line_ids": [], "optional_product_ids": []},
+        ],
+    })
+    target = FakeOdoo()
+    seeder = ProductSeeder(source, target)
+    maps = seeder.seed_attributes()
+    tmpl_map = seeder.seed_products(maps)
+    seeder.seed_cross_sells(tmpl_map)
+
+    dst_a = [r for r in target.tables["product.template"]
+             if r["default_code"] == "A-1"][0]
+    assert dst_a["optional_product_ids"] == [(6, 0, [tmpl_map[2]])]
+    assert seeder.report.cross_sells_linked == 1

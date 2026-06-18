@@ -149,3 +149,28 @@ class ProductSeeder:
                        self.report.products_created, self.report.products_updated,
                        self.report.products_skipped)
         return template_map
+
+    def seed_cross_sells(self, template_map: dict[int, int]) -> None:
+        rows = self._src.search_read(
+            "product.template", [], ["id", "optional_product_ids"],
+        )
+        for row in rows:
+            src_opts = row.get("optional_product_ids") or []
+            if not src_opts or int(row["id"]) not in template_map:
+                continue
+            dst_opts = [template_map[o] for o in src_opts if o in template_map]
+            if not dst_opts:
+                continue
+            self._dst.write(
+                "product.template", [template_map[int(row["id"])]],
+                {"optional_product_ids": [(6, 0, dst_opts)]},
+            )
+            self.report.cross_sells_linked += 1
+        self._log.info("Ventas cruzadas linkeadas: %s", self.report.cross_sells_linked)
+
+    def run(self, *, limit: int | None = None) -> SeedReport:
+        """Orquesta las tres pasadas y devuelve el reporte."""
+        maps = self.seed_attributes()
+        template_map = self.seed_products(maps)
+        self.seed_cross_sells(template_map)
+        return self.report
