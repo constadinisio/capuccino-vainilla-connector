@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from ..clients.protocols import OdooApi
 from ..logging_config import get_logger
+from ..services.catalog_sync import ODOO_PRODUCT_FIELDS
 
 
 @dataclass
@@ -83,3 +84,64 @@ class ProductSeeder:
         self._log.info("Atributos copiados: %s, valores: %s",
                        self.report.attributes_created, self.report.values_created)
         return maps
+
+    def _attribute_line_commands(self, line_ids: list[int],
+                                 maps: AttributeMaps) -> list:
+        """Construye comandos (0,0,{...}) para attribute_line_ids remapeados."""
+        if not line_ids:
+            return []
+        lines = self._src.read(
+            "product.template.attribute.line", line_ids,
+            ["attribute_id", "value_ids"],
+        )
+        commands = []
+        for line in lines:
+            dst_attr = maps.attribute_ids.get(line["attribute_id"][0])
+            if dst_attr is None:
+                continue
+            dst_values = [maps.value_ids[v] for v in line["value_ids"]
+                          if v in maps.value_ids]
+            commands.append((0, 0, {
+                "attribute_id": dst_attr,
+                "value_ids": [(6, 0, dst_values)],
+            }))
+        return commands
+
+    def seed_products(self, maps: AttributeMaps) -> dict[int, int]:
+        template_map: dict[int, int] = {}
+        products = self._src.search_read(
+            "product.template", [], ODOO_PRODUCT_FIELDS, order="id",
+        )
+        for prod in products:
+            sku = prod.get("default_code")
+            if not sku:
+                self.report.products_skipped += 1
+                self._log.warning("Producto origen id=%s sin SKU. Se omite.", prod["id"])
+                continue
+
+            scalar = {
+                "name": prod["name"],
+                "default_code": sku,
+                "list_price": prod.get("list_price") or 0.0,
+                "description_sale": prod.get("description_sale") or "",
+            }
+            existing = self._dst.search_read(
+                "product.template", [("default_code", "=", sku)], ["id"], limit=1,
+            )
+            if existing:
+                dst_id = int(existing[0]["id"])
+                self._dst.write("product.template", [dst_id], scalar)  # sin líneas
+                self.report.products_updated += 1
+            else:
+                values = dict(scalar)
+                values["attribute_line_ids"] = self._attribute_line_commands(
+                    prod.get("attribute_line_ids") or [], maps,
+                )
+                dst_id = int(self._dst.create("product.template", values))
+                self.report.products_created += 1
+            template_map[int(prod["id"])] = dst_id
+
+        self._log.info("Productos creados: %s, actualizados: %s, omitidos: %s",
+                       self.report.products_created, self.report.products_updated,
+                       self.report.products_skipped)
+        return template_map
