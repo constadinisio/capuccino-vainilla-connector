@@ -23,6 +23,11 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="capuccino-vainilla",
         description="Conector bidireccional Odoo ⇄ WooCommerce (Pinnacle).",
     )
+    parser.add_argument(
+        "--env-file",
+        default=None,
+        help="Ruta a un .env específico (ej. .env.test). Default: busca .env.",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_sync = sub.add_parser("sync-catalog", help="Sincroniza catálogo Odoo -> WooCommerce")
@@ -125,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     try:
-        config = load_config()
+        config = load_config(env_file=args.env_file)
     except ConfigError as exc:
         print(f"Error de configuración: {exc}", file=sys.stderr)
         return 2
