@@ -74,18 +74,25 @@ class CatalogSyncService:
     # -- Orquestación ------------------------------------------------------
 
     def run(
-        self, *, full: bool = True, since: str | None = None, limit: int | None = None
+        self,
+        *,
+        full: bool = True,
+        since: str | None = None,
+        limit: int | None = None,
+        ids: list[int] | None = None,
     ) -> SyncReport:
         """Ejecuta la sincronización del catálogo.
 
         Args:
             full: si True ignora `since` (sincronización completa).
-            since: fecha/hora UTC ('YYYY-MM-DD HH:MM:SS') para sincronización
-                incremental por `write_date`.
+            since: fecha/hora UTC para sincronización incremental por `write_date`.
             limit: tope opcional de productos a procesar (para pruebas).
+            ids: si se pasa, sincroniza exactamente esos templates (modo watcher).
         """
         domain: list = [("sale_ok", "=", True)]
-        if not full and since:
+        if ids is not None:
+            domain.append(("id", "in", list(ids)))
+        elif not full and since:
             domain.append(("write_date", ">=", since))
             self._log.info("Sincronización incremental desde %s", since)
 

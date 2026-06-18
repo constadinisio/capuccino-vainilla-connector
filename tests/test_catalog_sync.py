@@ -103,3 +103,16 @@ def test_limit_caps_processing(fake_odoo, fake_woo):
     report = _service(fake_odoo, fake_woo, batch_size=2).run(full=True, limit=3)
     assert report.total == 3
     assert report.created == 3
+
+
+def test_run_with_explicit_ids_only_syncs_those(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [
+            _template(101, "AAA"), _template(102, "BBB"), _template(103, "CCC"),
+        ]
+    }
+    report = _service(fake_odoo, fake_woo).run(ids=[102])
+    assert report.total == 1
+    assert "BBB" in fake_woo.products_by_sku
+    assert "AAA" not in fake_woo.products_by_sku
+    assert "CCC" not in fake_woo.products_by_sku
