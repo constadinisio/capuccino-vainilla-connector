@@ -31,6 +31,7 @@ dev = [
 
 [project.scripts]
 capuccino-vainilla = "capuccino_vainilla.cli:main"
+seed-odoo = "capuccino_vainilla.seeder.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
