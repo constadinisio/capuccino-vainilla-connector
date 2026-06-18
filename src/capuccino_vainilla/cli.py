@@ -49,6 +49,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_viewer.add_argument("--host", default="127.0.0.1", help="Host de escucha.")
     p_viewer.add_argument("--port", type=int, default=8050, help="Puerto (default: 8050).")
 
+    p_watch = sub.add_parser("watch", help="Sincroniza el catálogo en continuo (Flujo 1 automático)")
+    p_watch.add_argument("--interval", type=int, default=None,
+                         help="Segundos entre ciclos (default: WATCH_INTERVAL).")
+    p_watch.add_argument("--once", action="store_true",
+                         help="Corre un solo ciclo y termina (útil para pruebas/cron).")
+
     return parser
 
 
@@ -103,6 +109,39 @@ def _cmd_serve(config: AppConfig, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_watch(config: AppConfig, args: argparse.Namespace) -> int:
+    import signal
+
+    from .services.connector import OdooWooConnector
+    from .state import SnapshotStore
+    from .watcher.change_detector import ChangeDetector
+    from .watcher.scheduler import Scheduler
+    from .watcher.service import WatchService
+
+    connector = OdooWooConnector(config)
+    detector = ChangeDetector(connector.odoo, batch_size=config.runtime.batch_size)
+    store = SnapshotStore(config.watcher.state_file)
+    service = WatchService(detector, connector.catalog, store,
+                           initial_full=config.watcher.initial_full)
+
+    if args.once:
+        service.run_once()
+        return 0
+
+    interval = args.interval or config.watcher.interval
+    stop = {"flag": False}
+
+    def _handle(_signum, _frame):
+        stop["flag"] = True
+
+    signal.signal(signal.SIGINT, _handle)
+    signal.signal(signal.SIGTERM, _handle)
+
+    print(f"Watcher en marcha (cada {interval}s). Ctrl-C para detener.")
+    Scheduler(service.run_once, interval, should_stop=lambda: stop["flag"]).run_forever()
+    return 0
+
+
 def _cmd_viewer(config: AppConfig, args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -152,6 +191,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_serve(config, args)
         if args.command == "viewer":
             return _cmd_viewer(config, args)
+        if args.command == "watch":
+            return _cmd_watch(config, args)
     except ConfigError as exc:
         print(f"Error de configuración: {exc}", file=sys.stderr)
         return 2
