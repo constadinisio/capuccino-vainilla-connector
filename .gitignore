@@ -3,8 +3,11 @@ __pycache__/
 *.pyc
 .env
 .env.seed
+.env.local
 sync.log
 seed.log
+logs/
+*.log
 .sync_state.json
 .seed_state.json
 *.egg-info/

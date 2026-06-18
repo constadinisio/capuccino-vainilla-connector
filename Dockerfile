@@ -13,9 +13,14 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --upgrade pip && pip install .
 
-# Usuario no-root por seguridad.
-RUN useradd --create-home --uid 1000 appuser
+# Usuario no-root por seguridad + directorio de logs escribible por él.
+RUN useradd --create-home --uid 1000 appuser \
+    && mkdir -p /app/logs \
+    && chown -R appuser:appuser /app/logs
 USER appuser
+
+# Por defecto el log va a un path escribible por appuser (sobreescribible por env).
+ENV LOG_FILE=/app/logs/sync.log
 
 EXPOSE 8000
 
