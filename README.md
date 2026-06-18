@@ -74,6 +74,17 @@ copy .env.example .env           # y completar credenciales (cp en Linux/Mac)
 ## 🧭 Uso (CLI)
 
 ```bash
+# Flujo 1 — Sincronización automática y continua (watcher)
+capuccino-vainilla watch                 # cada WATCH_INTERVAL segundos
+capuccino-vainilla watch --interval 15   # override del intervalo
+capuccino-vainilla watch --once          # un solo ciclo (cron/pruebas)
+```
+
+> El `watch` detecta altas, ediciones y **cambios de stock por ventas** (que
+> `write_date` no refleja) comparando una huella por producto contra un snapshot
+> persistido. Los productos dados de baja en Odoo se **despublican** en Woo.
+
+```bash
 # Flujo 1 — Catálogo
 capuccino-vainilla sync-catalog              # incremental (usa el último estado)
 capuccino-vainilla sync-catalog --full       # completo

@@ -27,8 +27,10 @@ def test_diff_detects_changed_added_and_disappeared(fake_odoo):
         2: {"sku": "B", "write_date": "2026-01-01 00:00:00", "qty": 5, "price": 10.0},
     }
     current = {
-        1: {"sku": "A", "write_date": "2026-01-01 00:00:00", "qty": 0, "price": 10.0},  # stock cambió
-        3: {"sku": "C", "write_date": "2026-06-01 00:00:00", "qty": 1, "price": 9.0},   # alta
+        # stock cambió
+        1: {"sku": "A", "write_date": "2026-01-01 00:00:00", "qty": 0, "price": 10.0},
+        # alta
+        3: {"sku": "C", "write_date": "2026-06-01 00:00:00", "qty": 1, "price": 9.0},
     }
     changes = det.diff(snapshot, current)
     assert sorted(changes.changed_ids) == [1, 3]
