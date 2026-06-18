@@ -74,6 +74,39 @@ services:
       - woo-data:/var/www/html
     # Se usa con `docker compose run --rm woo-cli <args wp>`; no se levanta con `up`.
 
+  # --- Entorno de prueba Odoo (solo con --profile odoo) ---
+  odoo-db:
+    image: postgres:15
+    profiles: ["odoo"]
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  odoo:
+    image: odoo:16
+    profiles: ["odoo"]
+    depends_on:
+      odoo-db:
+        condition: service_healthy
+    ports:
+      - "8069:8069"
+    environment:
+      HOST: odoo-db
+      USER: odoo
+      PASSWORD: odoo
+    volumes:
+      - odoo-data:/var/lib/odoo
+
 volumes:
   woo-db-data:
   woo-data:
+  odoo-db-data:
+  odoo-data:
