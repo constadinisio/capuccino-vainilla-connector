@@ -47,7 +47,10 @@ salvo `--profile odoo`.
   volúmenes `odoo-data:/var/lib/odoo` y addons. Variables `HOST`, `USER`, `PASSWORD` apuntando a
   `odoo-db`.
 
-Antes del seed se verifica con una llamada `version()` que el major del local coincide con el real.
+> **Nota (descopado en la implementación):** originalmente el diseño preveía verificar con una
+> llamada `version()` que el major del Odoo local coincidiera con el real. No se implementó: la
+> coincidencia se garantiza por elección de imagen (`odoo:16` = Odoo 16 del real) y queda como
+> verificación manual. Pendiente de implementar si se quiere una salvaguarda automática.
 
 ### 2. Configuración: credenciales origen vs destino
 
