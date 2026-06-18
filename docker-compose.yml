@@ -25,3 +25,55 @@ services:
     command: ["sync-catalog"]
     profiles: ["tools"]
     restart: "no"
+
+  # --- Entorno de prueba WooCommerce (solo con --profile woo) ---
+  woo-db:
+    image: mariadb:11
+    profiles: ["woo"]
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: wordpress
+      MARIADB_ROOT_PASSWORD: rootpass
+    volumes:
+      - woo-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  woo:
+    image: wordpress:6-php8.3-apache
+    profiles: ["woo"]
+    depends_on:
+      woo-db:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: woo-db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - woo-data:/var/www/html
+
+  woo-cli:
+    image: wordpress:cli-php8.3
+    profiles: ["woo"]
+    depends_on:
+      woo:
+        condition: service_started
+    environment:
+      WORDPRESS_DB_HOST: woo-db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - woo-data:/var/www/html
+    # Se usa con `docker compose run --rm woo-cli <args wp>`; no se levanta con `up`.
+
+volumes:
+  woo-db-data:
+  woo-data:
