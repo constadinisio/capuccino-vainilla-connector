@@ -1,5 +1,8 @@
 # Credenciales y estado local
 .env
+.env.*
+!.env.example
+!.env.test.example
 .sync_state.json
 *.log
 
