@@ -18,9 +18,16 @@ class FakeOdoo:
                 self._insert(model, dict(row))
 
     def _insert(self, model: str, row: dict) -> int:
-        rid = row.get("id") or self._alloc(model)
-        row["id"] = rid
-        self.tables.setdefault(model, []).append(row)
+        # Determinar id sin mutar el dict original
+        explicit = row.get("id")
+        rid = explicit if explicit else self._alloc(model)
+        # Avanzar el contador si el id explícito supera el actual
+        if explicit:
+            current = self._next_id.get(model, 1)
+            if explicit >= current:
+                self._next_id[model] = explicit + 1
+        stored = {**row, "id": rid}
+        self.tables.setdefault(model, []).append(stored)
         return rid
 
     def _alloc(self, model: str) -> int:
@@ -58,8 +65,10 @@ class FakeOdoo:
 
     def write(self, model, ids, values):
         self.write_calls.append((model, list(ids), dict(values)))
-        by_id = {r["id"]: r for r in self.tables.get(model, [])}
-        for i in ids:
-            if i in by_id:
-                by_id[i].update(values)
+        ids_set = set(ids)
+        # Reconstruir la lista con nuevos dicts para no mutar el estado compartido
+        self.tables[model] = [
+            {**r, **values} if r["id"] in ids_set else r
+            for r in self.tables.get(model, [])
+        ]
         return True
