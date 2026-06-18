@@ -101,6 +101,10 @@ class ProductSeeder:
                 continue
             dst_values = [maps.value_ids[v] for v in line["value_ids"]
                           if v in maps.value_ids]
+            # Si ningún valor sobrevivió el remapeo, omitir toda la línea:
+            # Odoo rechaza attribute_line_ids sin valores (_check_valid_values).
+            if not dst_values:
+                continue
             commands.append((0, 0, {
                 "attribute_id": dst_attr,
                 "value_ids": [(6, 0, dst_values)],
