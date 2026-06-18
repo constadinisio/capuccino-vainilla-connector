@@ -13,6 +13,8 @@ from ..clients.protocols import OdooApi
 from ..logging_config import get_logger
 from ..services.catalog_sync import ODOO_PRODUCT_FIELDS
 
+SEED_BATCH_SIZE = 100
+
 
 @dataclass
 class AttributeMaps:
@@ -55,10 +57,32 @@ class ProductSeeder:
             return int(existing[0]["id"]), False
         return int(self._dst.create(model, values)), True
 
+    def _read_all(self, model: str, fields: list[str],
+                  domain: list | None = None, limit: int | None = None) -> list[dict]:
+        """Lee `model` paginando de a SEED_BATCH_SIZE, respetando un tope opcional `limit`."""
+        domain = domain or []
+        results: list[dict] = []
+        offset = 0
+        while True:
+            remaining = None if limit is None else max(0, limit - len(results))
+            if remaining == 0:
+                break
+            batch_size = SEED_BATCH_SIZE if remaining is None else min(SEED_BATCH_SIZE, remaining)
+            batch = self._src.search_read(
+                model, domain, fields, offset=offset, limit=batch_size, order="id",
+            )
+            if not batch:
+                break
+            results.extend(batch)
+            if len(batch) < batch_size:
+                break
+            offset += len(batch)
+        return results
+
     def seed_attributes(self) -> AttributeMaps:
         maps = AttributeMaps()
 
-        for attr in self._src.search_read("product.attribute", [], ["name"]):
+        for attr in self._read_all("product.attribute", ["name"]):
             dst_id, created = self._find_or_create(
                 "product.attribute", [("name", "=", attr["name"])],
                 {"name": attr["name"]},
@@ -67,11 +91,15 @@ class ProductSeeder:
             if created:
                 self.report.attributes_created += 1
 
-        for val in self._src.search_read(
-            "product.attribute.value", [], ["name", "attribute_id"]
-        ):
+        for val in self._read_all("product.attribute.value", ["name", "attribute_id"]):
             src_attr_id = val["attribute_id"][0]  # many2one -> [id, name]
-            dst_attr_id = maps.attribute_ids[src_attr_id]
+            dst_attr_id = maps.attribute_ids.get(src_attr_id)
+            if dst_attr_id is None:
+                self._log.warning(
+                    "Valor de atributo id=%s referencia un atributo no mapeado (id=%s). Se omite.",
+                    val["id"], src_attr_id,
+                )
+                continue
             dst_id, created = self._find_or_create(
                 "product.attribute.value",
                 [("name", "=", val["name"]), ("attribute_id", "=", dst_attr_id)],
@@ -113,9 +141,7 @@ class ProductSeeder:
 
     def seed_products(self, maps: AttributeMaps, *, limit: int | None = None) -> dict[int, int]:
         template_map: dict[int, int] = {}
-        products = self._src.search_read(
-            "product.template", [], ODOO_PRODUCT_FIELDS, limit=limit, order="id",
-        )
+        products = self._read_all("product.template", ODOO_PRODUCT_FIELDS, limit=limit)
         for prod in products:
             sku = prod.get("default_code")
             if not sku:
@@ -151,9 +177,7 @@ class ProductSeeder:
         return template_map
 
     def seed_cross_sells(self, template_map: dict[int, int]) -> None:
-        rows = self._src.search_read(
-            "product.template", [], ["id", "optional_product_ids"],
-        )
+        rows = self._read_all("product.template", ["id", "optional_product_ids"])
         for row in rows:
             src_id = int(row["id"])
             src_opts = row.get("optional_product_ids") or []

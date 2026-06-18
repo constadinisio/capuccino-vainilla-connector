@@ -2,6 +2,47 @@ from capuccino_vainilla.seeder.product_seeder import AttributeMaps, ProductSeede
 from tests.seeder.fakes import FakeOdoo
 
 
+def test_seed_attributes_skips_value_with_unmapped_attribute():
+    """Valor cuyo attribute_id no existe en product.attribute → se omite sin KeyError."""
+    source = FakeOdoo({
+        "product.attribute": [
+            {"id": 10, "name": "Color"},
+        ],
+        "product.attribute.value": [
+            {"id": 100, "name": "Rojo", "attribute_id": [10, "Color"]},
+            # attribute_id 99 nunca fue sembrado como product.attribute
+            {"id": 200, "name": "Fantasma", "attribute_id": [99, "Inexistente"]},
+        ],
+    })
+    target = FakeOdoo()
+    maps = ProductSeeder(source, target).seed_attributes()
+
+    # El valor con atributo mapeado se copió normalmente.
+    assert 100 in maps.value_ids
+    # El valor con atributo no mapeado se omitió y no está en value_ids.
+    assert 200 not in maps.value_ids
+    # Solo un valor fue creado en el destino.
+    assert len(target.tables.get("product.attribute.value", [])) == 1
+
+
+def test_read_all_returns_complete_set_of_attributes():
+    """_read_all devuelve todos los registros aunque se llame en múltiples lotes."""
+    source = FakeOdoo({
+        "product.attribute": [
+            {"id": 1, "name": "Color"},
+            {"id": 2, "name": "Tamaño"},
+            {"id": 3, "name": "Material"},
+        ],
+    })
+    target = FakeOdoo()
+    seeder = ProductSeeder(source, target)
+    result = seeder._read_all("product.attribute", ["name"])
+
+    assert len(result) == 3
+    names = {r["name"] for r in result}
+    assert names == {"Color", "Tamaño", "Material"}
+
+
 def _source_with_attributes() -> FakeOdoo:
     return FakeOdoo({
         "product.attribute": [
