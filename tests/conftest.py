@@ -14,6 +14,7 @@ from capuccino_vainilla.config import (
     AppConfig,
     OdooConfig,
     RuntimeConfig,
+    WatcherConfig,
     WebhookConfig,
     WooConfig,
 )
@@ -190,6 +191,7 @@ def make_config(webhook_secret: str = "test-secret") -> AppConfig:
             batch_size=2, max_retries=2, retry_delay=0.0,
             log_level="INFO", log_file="test.log", state_file=".state.json",
         ),
+        watcher=WatcherConfig(interval=1, initial_full=True, state_file=".watch.json"),
     )
 
 

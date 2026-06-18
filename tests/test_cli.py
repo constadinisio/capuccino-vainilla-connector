@@ -4,6 +4,7 @@ from capuccino_vainilla.config import (
     ConfigError,
     OdooConfig,
     RuntimeConfig,
+    WatcherConfig,
     WebhookConfig,
     WooConfig,
 )
@@ -40,6 +41,7 @@ def _fake_config() -> AppConfig:
             log_file="sync.log",
             state_file=".sync_state.json",
         ),
+        watcher=WatcherConfig(interval=30, initial_full=True, state_file=".watch_snapshot.json"),
     )
 
 
