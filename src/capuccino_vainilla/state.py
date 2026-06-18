@@ -63,14 +63,14 @@ class SnapshotStore:
         try:
             with open(self._path, encoding="utf-8") as fh:
                 raw = json.load(fh)
+            return {int(k): v for k, v in raw.items()}
         except FileNotFoundError:
             return {}
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
             self._log.warning(
                 "No se pudo leer el snapshot '%s': %s. Se asume vacío.", self._path, exc
             )
             return {}
-        return {int(k): v for k, v in raw.items()}
 
     def save(self, snapshot: dict[int, dict]) -> None:
         try:

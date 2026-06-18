@@ -46,3 +46,11 @@ def test_snapshot_store_missing_file_returns_empty(tmp_path):
     from capuccino_vainilla.state import SnapshotStore
     store = SnapshotStore(str(tmp_path / "nope.json"))
     assert store.load() == {}
+
+
+def test_snapshot_store_corrupt_file_returns_empty(tmp_path):
+    from capuccino_vainilla.state import SnapshotStore
+    path = tmp_path / "snap.json"
+    path.write_text('{ "abc": {} ', encoding="utf-8")
+    store = SnapshotStore(str(path))
+    assert store.load() == {}
