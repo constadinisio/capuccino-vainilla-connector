@@ -119,6 +119,28 @@ class CatalogSyncService:
         self._log.info("Sincronización de catálogo finalizada: %s", report.as_dict())
         return report
 
+    def unpublish(self, skus: list[str]) -> int:
+        """Despublica en Woo (status=draft) los productos dados de baja en Odoo.
+
+        Nunca borra: pasar a borrador es reversible. Omite SKUs vacíos o ausentes
+        en Woo. Devuelve cuántos se despublicaron efectivamente.
+        """
+        count = 0
+        for sku in skus:
+            if not sku:
+                continue
+            woo_id = self._find_woo_id_by_sku(sku)
+            if not woo_id:
+                self._log.info("Baja SKU=%s: no está en Woo, nada que despublicar.", sku)
+                continue
+            try:
+                self._woo.put(f"products/{woo_id}", {"status": "draft"})
+                count += 1
+                self._log.info("Producto despublicado en Woo id=%s (SKU=%s).", woo_id, sku)
+            except ConnectorError as exc:
+                self._log.error("Fallo despublicando SKU=%s: %s", sku, exc)
+        return count
+
     # -- Fase 1: productos -------------------------------------------------
 
     def _process_batch(
