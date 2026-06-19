@@ -49,7 +49,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_viewer.add_argument("--host", default="127.0.0.1", help="Host de escucha.")
     p_viewer.add_argument("--port", type=int, default=8050, help="Puerto (default: 8050).")
 
-    p_watch = sub.add_parser("watch", help="Sincroniza el catálogo en continuo")
+    p_watch = sub.add_parser(
+        "watch", help="Sincroniza el catálogo en continuo (Flujo 1 automático)"
+    )
     p_watch.add_argument("--interval", type=int, default=None,
                          help="Segundos entre ciclos (default: WATCH_INTERVAL).")
     p_watch.add_argument("--once", action="store_true",

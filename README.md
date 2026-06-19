@@ -85,7 +85,7 @@ capuccino-vainilla watch --once          # un solo ciclo (cron/pruebas)
 > persistido. Los productos dados de baja en Odoo se **despublican** en Woo.
 
 ```bash
-# Flujo 1 — Catálogo
+# Flujo 1 — Catálogo (manual)
 capuccino-vainilla sync-catalog              # incremental (usa el último estado)
 capuccino-vainilla sync-catalog --full       # completo
 capuccino-vainilla sync-catalog --limit 20   # acotado (pruebas)
