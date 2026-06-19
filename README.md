@@ -46,9 +46,21 @@ src/capuccino_vainilla/
 │   ├── catalog_sync.py     #   FLUJO 1
 │   ├── order_import.py     #   FLUJO 2
 │   └── connector.py        #   Fachada OdooWooConnector
-└── webhook/                # Servidor FastAPI
-    ├── security.py         #   Validación HMAC
-    └── app.py              #   Endpoint /webhooks/...
+├── webhook/                # FLUJO 2 — Servidor FastAPI de pedidos
+│   ├── security.py         #   Validación de firma HMAC
+│   └── app.py              #   Endpoint /webhooks/...
+├── watcher/                # FLUJO 1 automático (sincronización continua)
+│   ├── change_detector.py  #   Detección de cambios por huella (fingerprint)
+│   ├── scheduler.py        #   Bucle por intervalo
+│   └── service.py          #   Orquestación de un ciclo (tick)
+├── viewer/                 # Visor web (dashboard) — FastAPI
+│   ├── app.py              #   Rutas + API JSON
+│   ├── service.py          #   Acciones contra Odoo/Woo
+│   └── progress.py         #   Estado de progreso de la sincronización
+└── seeder/                 # Utilidad: copia el catálogo del Odoo real -> Odoo local
+    ├── cli.py              #   Entrypoint `seed-odoo`
+    ├── readonly.py         #   Guardia de solo-lectura sobre el origen
+    └── safety.py           #   Garantiza que el destino sea local
 ```
 
 **Principio rector:** la I/O vive en `clients/`; las transformaciones en `mappers/` son
@@ -59,6 +71,8 @@ lo que permite inyectar *fakes* y testear sin red.
 
 ## 🚀 Instalación
 
+**Requisitos:** Python 3.11+ y (para el entorno de prueba) Docker.
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate          # Windows  (source .venv/bin/activate en Linux/Mac)
@@ -67,7 +81,33 @@ pip install -e ".[dev]"          # paquete + herramientas de desarrollo
 copy .env.example .env           # y completar credenciales (cp en Linux/Mac)
 ```
 
+La instalación expone dos comandos de consola:
+
+| Comando | Para qué |
+|---|---|
+| `capuccino-vainilla` | CLI principal (sincronización, webhook, watcher, visor). |
+| `seed-odoo` | Utilidad para poblar un Odoo local con el catálogo del Odoo real. |
+
 > 🔐 El `.env` nunca se versiona. En Odoo, usá una **API Key** en vez del password.
+
+---
+
+## ⚙️ Configuración (`.env`)
+
+Toda la configuración se carga desde un `.env` y se **valida al arrancar** (fail fast).
+Partí de [`.env.example`](.env.example), que documenta cada variable. Grupos principales:
+
+| Grupo | Variables | Notas |
+|---|---|---|
+| **Odoo** | `ODOO_URL`, `ODOO_DB`, `ODOO_USERNAME`, `ODOO_PASSWORD` | Usá una **API Key** como password. |
+| **WooCommerce** | `WOO_URL`, `WOO_CONSUMER_KEY`, `WOO_CONSUMER_SECRET`, `WOO_VERIFY_SSL` | `WOO_VERIFY_SSL=false` **solo** en local. |
+| **Webhook** | `WEBHOOK_SECRET`, `WEBHOOK_PATH`, `WEBHOOK_HOST`, `WEBHOOK_PORT` | El secreto debe coincidir con el del webhook en Woo. |
+| **Ejecución** | `BATCH_SIZE`, `MAX_RETRIES`, `RETRY_DELAY`, `HTTP_TIMEOUT`, `LOG_LEVEL`, `LOG_FILE`, `STATE_FILE` | Paginación, reintentos y logging. |
+| **Watcher** | `WATCH_INTERVAL`, `WATCH_INITIAL_FULL`, `WATCH_STATE_FILE` | Intervalo y snapshot de huellas. |
+
+> 💡 Podés tener varios entornos en archivos distintos (ej. `.env.local`) y elegirlos
+> con el flag global `--env-file`:
+> `capuccino-vainilla --env-file .env.local sync-catalog`.
 
 ---
 
@@ -114,7 +154,8 @@ Incluye:
 - **Estado de conexión** Odoo / WooCommerce en vivo (se actualiza solo).
 - **Catálogo lado a lado**: productos de Odoo (origen) vs WooCommerce (destino), con
   match por SKU y visualización del meta `_odoo_product_id`.
-- **Flujo 1:** botón *Sincronizar catálogo* (con límite o completo) → muestra el reporte.
+- **Flujo 1:** botón *Sincronizar catálogo* (con límite o completo) → **barra de progreso
+  en vivo con estimación de tiempo (ETA)** y, al terminar, el reporte.
 - **Flujo 2:** lista de pedidos recientes de la tienda con botón *Importar a Odoo* →
   muestra el `sale.order` creado.
 - **Consola de logs** reales del backend.
@@ -153,10 +194,83 @@ make type       # mypy
 
 ## 🐳 Docker
 
+**Servicios del conector** (usan tu `.env`, apuntan a tus instancias reales):
+
 ```bash
-docker compose up webhook            # servidor de webhooks (puerto 8000)
-docker compose run --rm sync         # corrida puntual de sincronización
+docker compose up -d webhook         # servidor de webhooks (puerto 8000)
+docker compose up -d watcher         # sincronización automática y continua (Flujo 1)
+docker compose run --rm sync         # corrida puntual de sincronización de catálogo
 ```
+
+Ambos servicios traen `restart: unless-stopped`: si el servidor se reinicia, levantan solos.
+
+**Stack de prueba local** (Odoo 16 + Postgres y WooCommerce + MariaDB), bajo *profiles*:
+
+```bash
+docker compose --profile odoo --profile woo up -d
+#   Odoo        -> http://localhost:8069
+#   WooCommerce -> http://localhost:8080
+```
+
+> Ver la guía de **inicialización** más abajo para poblar estas instancias y validar
+> los dos flujos punta a punta.
+
+---
+
+## 🏗️ Entorno de prueba local (end-to-end)
+
+Para probar los dos flujos sin tocar producción, contra instancias **locales** en Docker.
+Guía detallada y verificada en
+[`docs/runbooks/2026-06-18-validacion-end-to-end.md`](docs/runbooks/2026-06-18-validacion-end-to-end.md).
+Resumen:
+
+1. **Levantar el stack:** `docker compose --profile odoo --profile woo up -d`.
+2. **Instalar el módulo `stock` en Odoo** (necesario para `qty_available`): desde Apps en la
+   UI de Odoo, o vía XML-RPC.
+3. **Poblar Odoo** con el catálogo del Odoo real (copiá `.env.seed.example` → `.env.seed`,
+   completá origen/destino, y corré):
+   ```bash
+   seed-odoo
+   ```
+   El origen se trata como **solo lectura** y el destino debe ser **local** (gate de seguridad).
+4. **Aprovisionar WooCommerce y generar la API key:**
+   ```bash
+   bash scripts/woo-provision.sh
+   ```
+   Copiá el `ck_/cs_` impreso a tu `.env.local` (admin de Woo: `admin` / `admin12345`).
+5. **Apuntar el `.env.local`** a `localhost` (Odoo `:8069`, Woo `:8080`) y validar:
+   ```bash
+   capuccino-vainilla --env-file .env.local viewer   # ambos paneles en verde
+   ```
+
+> ⚠️ **Gate de seguridad:** corré esta validación solo cuando en `.env.local` tanto
+> `ODOO_URL` como `WOO_URL` apunten a `localhost`. Nunca contra producción.
+
+---
+
+## 🚀 Despliegue a producción
+
+Una vez desplegado, el sistema funciona **solo en ambas direcciones** (no requiere
+intervención manual). Pasos, una sola vez:
+
+1. **Desplegar** el conector (Docker) en un servidor siempre encendido, con los servicios
+   `watcher` y `webhook` corriendo (`docker compose up -d watcher webhook`).
+2. **`.env` productivo:** apuntar a tu Odoo y tu tienda reales (no `localhost`), con un
+   `WEBHOOK_SECRET` largo y aleatorio y `WOO_VERIFY_SSL=true`.
+3. **URL pública + HTTPS** para el webhook (ej. `https://conector.tu-dominio/webhooks/woocommerce/orders`).
+4. **Configurar el webhook en Woo** (ver sección siguiente), apuntando a esa URL con el mismo secreto.
+5. **Cron de WordPress:** en una tienda con tráfico real, WooCommerce entrega los webhooks
+   solo. Para máxima fiabilidad, desactivá el cron por-visita y usá un cron del sistema:
+   ```php
+   // wp-config.php
+   define('DISABLE_WP_CRON', true);
+   ```
+   ```cron
+   * * * * * curl -s https://tu-tienda/wp-cron.php >/dev/null
+   ```
+
+> **Operación:** el `watcher` mantiene el catálogo al día y el `webhook` ingresa los pedidos
+> automáticamente. El visor y la importación manual quedan como respaldo/diagnóstico.
 
 ---
 
@@ -167,5 +281,9 @@ docker compose run --rm sync         # corrida puntual de sincronización
   en `services/catalog_sync.py`.
 - **Stock:** `qty_available` es consolidado; para multi-almacén conviene filtrar por
   ubicación vía `context` de Odoo.
+- **Tipo de producto:** solo los productos **Almacenable** (`product`) gestionan stock real
+  en Odoo. Los **Consumible** (`consu`) reportan siempre `qty_available = 0`, así que su
+  stock no se sincroniza. Si un producto debe llevar stock en la tienda, marcalo como
+  Almacenable en Odoo.
 - **Variantes:** el conector trata los productos como `simple`. Para variantes
   (`product.product` con atributos de variación) se requiere extender el mapper.
