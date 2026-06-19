@@ -45,6 +45,7 @@ def build_woo_product_payload(
         "name": product.name,
         "sku": product.sku,
         "type": "simple",
+        "status": "publish",
         "regular_price": f"{product.price:.2f}",
         "description": product.description,
         # Gestión de stock: Woo refleja las cantidades provenientes de Odoo.

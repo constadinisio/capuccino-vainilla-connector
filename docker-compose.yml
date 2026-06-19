@@ -26,6 +26,14 @@ services:
     profiles: ["tools"]
     restart: "no"
 
+  # Watcher: sincronización automática y continua del catálogo (Flujo 1).
+  watcher:
+    build: .
+    image: capuccino-vainilla:latest
+    env_file: .env
+    command: ["watch"]
+    restart: unless-stopped
+
   # --- Entorno de prueba WooCommerce (solo con --profile woo) ---
   woo-db:
     image: mariadb:11

@@ -103,3 +103,38 @@ def test_limit_caps_processing(fake_odoo, fake_woo):
     report = _service(fake_odoo, fake_woo, batch_size=2).run(full=True, limit=3)
     assert report.total == 3
     assert report.created == 3
+
+
+def test_run_with_explicit_ids_only_syncs_those(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [
+            _template(101, "AAA"), _template(102, "BBB"), _template(103, "CCC"),
+        ]
+    }
+    report = _service(fake_odoo, fake_woo).run(ids=[102])
+    assert report.total == 1
+    assert "BBB" in fake_woo.products_by_sku
+    assert "AAA" not in fake_woo.products_by_sku
+    assert "CCC" not in fake_woo.products_by_sku
+
+
+def test_unpublish_sets_draft_for_known_skus(fake_odoo, fake_woo):
+    fake_woo.preload_product("GONE", 200, status="publish")
+    count = _service(fake_odoo, fake_woo).unpublish(["GONE", "MISSING", ""])
+    assert count == 1
+    assert fake_woo.products[200]["status"] == "draft"
+    assert any(
+        c[0] == "put" and c[1] == "products/200" and c[2] == {"status": "draft"}
+        for c in fake_woo.calls
+    )
+
+
+def test_resync_republishes_a_drafted_product(fake_odoo, fake_woo):
+    fake_odoo.db = {"product.template": [_template(101, "CAM-1")]}
+    svc = _service(fake_odoo, fake_woo)
+    svc.run(full=True)                      # crea el producto en Woo
+    svc.unpublish(["CAM-1"])                # lo despublica (status=draft)
+    woo_id = fake_woo.products_by_sku["CAM-1"]["id"]
+    assert fake_woo.products[woo_id]["status"] == "draft"
+    svc.run(ids=[101])                      # re-sync (producto volvió a estar activo)
+    assert fake_woo.products[woo_id]["status"] == "publish"

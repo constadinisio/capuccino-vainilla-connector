@@ -74,18 +74,25 @@ class CatalogSyncService:
     # -- Orquestación ------------------------------------------------------
 
     def run(
-        self, *, full: bool = True, since: str | None = None, limit: int | None = None
+        self,
+        *,
+        full: bool = True,
+        since: str | None = None,
+        limit: int | None = None,
+        ids: list[int] | None = None,
     ) -> SyncReport:
         """Ejecuta la sincronización del catálogo.
 
         Args:
             full: si True ignora `since` (sincronización completa).
-            since: fecha/hora UTC ('YYYY-MM-DD HH:MM:SS') para sincronización
-                incremental por `write_date`.
+            since: fecha/hora UTC para sincronización incremental por `write_date`.
             limit: tope opcional de productos a procesar (para pruebas).
+            ids: si se pasa, sincroniza exactamente esos templates (modo watcher).
         """
         domain: list = [("sale_ok", "=", True)]
-        if not full and since:
+        if ids is not None:
+            domain.append(("id", "in", list(ids)))
+        elif not full and since:
             domain.append(("write_date", ">=", since))
             self._log.info("Sincronización incremental desde %s", since)
 
@@ -111,6 +118,28 @@ class CatalogSyncService:
         report.cross_sells_linked = self._sync_cross_sells(cross_sell_jobs)
         self._log.info("Sincronización de catálogo finalizada: %s", report.as_dict())
         return report
+
+    def unpublish(self, skus: list[str]) -> int:
+        """Despublica en Woo (status=draft) los productos dados de baja en Odoo.
+
+        Nunca borra: pasar a borrador es reversible. Omite SKUs vacíos o ausentes
+        en Woo. Devuelve cuántos se despublicaron efectivamente.
+        """
+        count = 0
+        for sku in skus:
+            if not sku:
+                continue
+            woo_id = self._find_woo_id_by_sku(sku)
+            if not woo_id:
+                self._log.info("Baja SKU=%s: no está en Woo, nada que despublicar.", sku)
+                continue
+            try:
+                self._woo.put(f"products/{woo_id}", {"status": "draft"})
+                count += 1
+                self._log.info("Producto despublicado en Woo id=%s (SKU=%s).", woo_id, sku)
+            except ConnectorError as exc:
+                self._log.error("Fallo despublicando SKU=%s: %s", sku, exc)
+        return count
 
     # -- Fase 1: productos -------------------------------------------------
 

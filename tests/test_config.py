@@ -65,3 +65,43 @@ def test_invalid_int_raises(monkeypatch):
     _set_env(monkeypatch, overrides={"BATCH_SIZE": "abc"})
     with pytest.raises(ConfigError, match="BATCH_SIZE"):
         load_config()
+
+
+def test_watcher_config_defaults(monkeypatch):
+    from capuccino_vainilla.config import load_config
+    for k in ("WATCH_INTERVAL", "WATCH_INITIAL_FULL", "WATCH_STATE_FILE"):
+        monkeypatch.delenv(k, raising=False)
+    for k, v in {
+        "ODOO_URL": "http://o", "ODOO_DB": "d", "ODOO_USERNAME": "u",
+        "ODOO_PASSWORD": "p", "WOO_URL": "http://w",
+        "WOO_CONSUMER_KEY": "ck", "WOO_CONSUMER_SECRET": "cs",
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    cfg = load_config()
+    assert cfg.watcher.interval == 30
+    assert cfg.watcher.initial_full is True
+    assert cfg.watcher.state_file == ".watch_snapshot.json"
+
+
+def test_watcher_config_overrides(monkeypatch):
+    from capuccino_vainilla.config import load_config
+    for k, v in {
+        "ODOO_URL": "http://o", "ODOO_DB": "d", "ODOO_USERNAME": "u",
+        "ODOO_PASSWORD": "p", "WOO_URL": "http://w",
+        "WOO_CONSUMER_KEY": "ck", "WOO_CONSUMER_SECRET": "cs",
+        "WATCH_INTERVAL": "10", "WATCH_INITIAL_FULL": "false",
+        "WATCH_STATE_FILE": "/tmp/snap.json",
+    }.items():
+        monkeypatch.setenv(k, v)
+
+    cfg = load_config()
+    assert cfg.watcher.interval == 10
+    assert cfg.watcher.initial_full is False
+    assert cfg.watcher.state_file == "/tmp/snap.json"
+
+
+def test_watch_interval_zero_raises(monkeypatch):
+    _set_env(monkeypatch, overrides={"WATCH_INTERVAL": "0"})
+    with pytest.raises(ConfigError, match="WATCH_INTERVAL"):
+        load_config()

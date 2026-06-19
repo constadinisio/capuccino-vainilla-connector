@@ -107,11 +107,19 @@ class RuntimeConfig:
 
 
 @dataclass(frozen=True)
+class WatcherConfig:
+    interval: int          # segundos entre ciclos del watcher
+    initial_full: bool     # primer arranque: reconciliar todo el catálogo
+    state_file: str        # archivo del snapshot de huellas
+
+
+@dataclass(frozen=True)
 class AppConfig:
     odoo: OdooConfig
     woo: WooConfig
     webhook: WebhookConfig
     runtime: RuntimeConfig
+    watcher: WatcherConfig
 
 
 def load_config(env_file: str | None = None) -> AppConfig:
@@ -151,4 +159,12 @@ def load_config(env_file: str | None = None) -> AppConfig:
         log_file=_get_optional("LOG_FILE", "sync.log"),
         state_file=_get_optional("STATE_FILE", ".sync_state.json"),
     )
-    return AppConfig(odoo=odoo, woo=woo, webhook=webhook, runtime=runtime)
+    interval = _get_int("WATCH_INTERVAL", 30)
+    if interval <= 0:
+        raise ConfigError(f"WATCH_INTERVAL debe ser mayor que 0; se recibió {interval}.")
+    watcher = WatcherConfig(
+        interval=interval,
+        initial_full=_get_bool("WATCH_INITIAL_FULL", True),
+        state_file=_get_optional("WATCH_STATE_FILE", ".watch_snapshot.json"),
+    )
+    return AppConfig(odoo=odoo, woo=woo, webhook=webhook, runtime=runtime, watcher=watcher)

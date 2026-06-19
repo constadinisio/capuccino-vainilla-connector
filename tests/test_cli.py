@@ -4,6 +4,7 @@ from capuccino_vainilla.config import (
     ConfigError,
     OdooConfig,
     RuntimeConfig,
+    WatcherConfig,
     WebhookConfig,
     WooConfig,
 )
@@ -40,6 +41,7 @@ def _fake_config() -> AppConfig:
             log_file="sync.log",
             state_file=".sync_state.json",
         ),
+        watcher=WatcherConfig(interval=30, initial_full=True, state_file=".watch_snapshot.json"),
     )
 
 
@@ -83,3 +85,29 @@ def test_sin_env_file_se_usa_none(monkeypatch):
     main(["sync-catalog"])
 
     assert captured["env_file"] is None
+
+
+def test_watch_once_corre_un_ciclo(monkeypatch):
+    from capuccino_vainilla import cli
+
+    monkeypatch.setattr("capuccino_vainilla.cli.load_config", lambda env_file=None: _fake_config())
+    monkeypatch.setattr("capuccino_vainilla.cli.setup_logging", lambda *a, **kw: None)
+
+    calls = {"run_once": 0}
+
+    class FakeWatchService:
+        def __init__(self, *a, **kw):
+            pass
+
+        def run_once(self):
+            calls["run_once"] += 1
+
+    # Evita construir clientes reales y el server.
+    monkeypatch.setattr("capuccino_vainilla.services.connector.OdooWooConnector",
+                        lambda *a, **kw: type("C", (), {"odoo": object(), "catalog": object()})())
+    monkeypatch.setattr("capuccino_vainilla.watcher.service.WatchService", FakeWatchService)
+
+    rc = cli.main(["watch", "--once"])
+
+    assert rc == 0
+    assert calls["run_once"] == 1

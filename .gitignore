@@ -10,6 +10,7 @@ logs/
 *.log
 .sync_state.json
 .seed_state.json
+.watch_snapshot.json
 *.egg-info/
 htmlcov/
 .coverage

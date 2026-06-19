@@ -50,3 +50,31 @@ class SyncState:
                 json.dump(data, fh, indent=2)
         except OSError as exc:
             self._log.error("No se pudo guardar el estado '%s': %s", self._path, exc)
+
+
+class SnapshotStore:
+    """Lee/escribe el snapshot de huellas del watcher (id -> huella) en JSON."""
+
+    def __init__(self, path: str, logger: logging.Logger | None = None):
+        self._path = path
+        self._log = logger or get_logger("watcher.snapshot")
+
+    def load(self) -> dict[int, dict]:
+        try:
+            with open(self._path, encoding="utf-8") as fh:
+                raw = json.load(fh)
+            return {int(k): v for k, v in raw.items()}
+        except FileNotFoundError:
+            return {}
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            self._log.warning(
+                "No se pudo leer el snapshot '%s': %s. Se asume vacío.", self._path, exc
+            )
+            return {}
+
+    def save(self, snapshot: dict[int, dict]) -> None:
+        try:
+            with open(self._path, "w", encoding="utf-8") as fh:
+                json.dump({str(k): v for k, v in snapshot.items()}, fh, indent=2)
+        except OSError as exc:
+            self._log.error("No se pudo guardar el snapshot '%s': %s", self._path, exc)

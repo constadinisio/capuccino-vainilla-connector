@@ -90,8 +90,12 @@ desaparecidos = [i for i in snapshot if i not in nuevas]
 **Propiedades:**
 
 - No depende de la semántica de `write_date` para el stock → la consumición se detecta siempre.
-- **Idempotente:** si un producto falla al sincronizar, su huella NO se actualiza en el
-  snapshot, así que el próximo ciclo lo reintenta solo.
+- **Idempotente:** el snapshot del lote de `cambiados` solo avanza si el ciclo no tuvo
+  fallos (`report.failed == 0`). Si algún producto del lote falla, **ningún** `cambiado` de
+  ese ciclo avanza su huella, y el lote completo se reintenta en el próximo ciclo (los PUTs
+  son idempotentes por SKU, así que reprocesar los que ya estaban OK no causa daño). No hay
+  reintento por-producto individual: `SyncReport` expone un conteo de fallos, no qué ids
+  fallaron. Es un trade-off deliberado — los lotes de cambios por ciclo son chicos.
 - **Primer arranque** (sin snapshot): por defecto reconciliación completa
   (`WATCH_INITIAL_FULL=true`); arma el snapshot inicial. Si se pone en `false`, asume que
   Woo ya está al día y solo construye el snapshot sin sincronizar.
