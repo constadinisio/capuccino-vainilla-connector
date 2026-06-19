@@ -130,7 +130,7 @@ def _cmd_watch(config: AppConfig, args: argparse.Namespace) -> int:
         service.run_once()
         return 0
 
-    interval = args.interval or config.watcher.interval
+    interval = args.interval if args.interval is not None else config.watcher.interval
     stop = {"flag": False}
 
     def _handle(_signum, _frame):

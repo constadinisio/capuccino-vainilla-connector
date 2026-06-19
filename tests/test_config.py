@@ -99,3 +99,9 @@ def test_watcher_config_overrides(monkeypatch):
     assert cfg.watcher.interval == 10
     assert cfg.watcher.initial_full is False
     assert cfg.watcher.state_file == "/tmp/snap.json"
+
+
+def test_watch_interval_zero_raises(monkeypatch):
+    _set_env(monkeypatch, overrides={"WATCH_INTERVAL": "0"})
+    with pytest.raises(ConfigError, match="WATCH_INTERVAL"):
+        load_config()

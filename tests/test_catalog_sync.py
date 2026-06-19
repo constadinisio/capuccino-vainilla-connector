@@ -127,3 +127,14 @@ def test_unpublish_sets_draft_for_known_skus(fake_odoo, fake_woo):
         c[0] == "put" and c[1] == "products/200" and c[2] == {"status": "draft"}
         for c in fake_woo.calls
     )
+
+
+def test_resync_republishes_a_drafted_product(fake_odoo, fake_woo):
+    fake_odoo.db = {"product.template": [_template(101, "CAM-1")]}
+    svc = _service(fake_odoo, fake_woo)
+    svc.run(full=True)                      # crea el producto en Woo
+    svc.unpublish(["CAM-1"])                # lo despublica (status=draft)
+    woo_id = fake_woo.products_by_sku["CAM-1"]["id"]
+    assert fake_woo.products[woo_id]["status"] == "draft"
+    svc.run(ids=[101])                      # re-sync (producto volvió a estar activo)
+    assert fake_woo.products[woo_id]["status"] == "publish"

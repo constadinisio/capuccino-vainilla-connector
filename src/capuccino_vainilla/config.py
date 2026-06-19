@@ -159,8 +159,11 @@ def load_config(env_file: str | None = None) -> AppConfig:
         log_file=_get_optional("LOG_FILE", "sync.log"),
         state_file=_get_optional("STATE_FILE", ".sync_state.json"),
     )
+    interval = _get_int("WATCH_INTERVAL", 30)
+    if interval <= 0:
+        raise ConfigError(f"WATCH_INTERVAL debe ser mayor que 0; se recibió {interval}.")
     watcher = WatcherConfig(
-        interval=_get_int("WATCH_INTERVAL", 30),
+        interval=interval,
         initial_full=_get_bool("WATCH_INITIAL_FULL", True),
         state_file=_get_optional("WATCH_STATE_FILE", ".watch_snapshot.json"),
     )
