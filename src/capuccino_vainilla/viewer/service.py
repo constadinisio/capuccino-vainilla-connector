@@ -8,6 +8,7 @@ de modo que el visor arranca aunque Odoo o Woo estén momentáneamente caídos.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from ..clients import OdooClient, WooClient
 from ..clients.protocols import OdooApi, WooApi
@@ -85,6 +86,8 @@ class ViewerService:
     # -- Listados ----------------------------------------------------------
 
     def list_odoo_products(self, limit: int = 20, offset: int = 0) -> list[dict]:
+        limit = max(1, min(limit, 100))  # evita limit=0 (sin tope en Odoo) y acota el preview
+        offset = max(0, offset)
         rows = self._odoo().search_read(
             "product.template", [("sale_ok", "=", True)], _ODOO_FIELDS,
             offset=offset, limit=limit, order="id desc",
@@ -103,6 +106,8 @@ class ViewerService:
         ]
 
     def list_woo_products(self, per_page: int = 20, page: int = 1) -> list[dict]:
+        per_page = max(1, min(per_page, 100))  # Woo exige per_page en [1, 100]
+        page = max(1, page)
         items = self._woo().get("products", {"per_page": per_page, "page": page}) or []
         return [
             {
@@ -117,6 +122,7 @@ class ViewerService:
         ]
 
     def list_woo_orders(self, per_page: int = 10) -> list[dict]:
+        per_page = max(1, min(per_page, 100))  # Woo exige per_page en [1, 100]
         items = self._woo().get(
             "orders", {"per_page": per_page, "status": "any", "orderby": "date", "order": "desc"}
         ) or []
@@ -139,12 +145,17 @@ class ViewerService:
 
     # -- Acciones (disparan los flujos reales) -----------------------------
 
-    def run_sync(self, full: bool = True, limit: int | None = None) -> dict:
+    def run_sync(
+        self,
+        full: bool = True,
+        limit: int | None = None,
+        on_progress: Callable[[int, int], None] | None = None,
+    ) -> dict:
         service = CatalogSyncService(
             self._odoo(), self._woo(), AttributeSyncService(self._woo()),
             batch_size=self._config.runtime.batch_size, logger=self._log,
         )
-        report = service.run(full=full, since=None, limit=limit)
+        report = service.run(full=full, since=None, limit=limit, on_progress=on_progress)
         return report.as_dict()
 
     def import_woo_order(self, order_id: int) -> dict:

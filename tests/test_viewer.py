@@ -46,6 +46,16 @@ def test_list_woo_products_extracts_odoo_meta(fake_odoo, fake_woo):
     assert items[0]["odoo_id"] == "9"
 
 
+def test_list_woo_products_clamps_per_page(fake_odoo, fake_woo):
+    """Woo exige per_page en [1, 100]; valores fuera de rango deben acotarse
+    en el borde para no provocar un 400 (rest_out_of_bounds)."""
+    svc = _service(fake_odoo, fake_woo)
+    svc.list_woo_products(per_page=0)
+    svc.list_woo_products(per_page=500)
+    per_pages = [params["per_page"] for (_, ep, params) in fake_woo.calls if ep == "products"]
+    assert per_pages == [1, 100]
+
+
 def test_run_sync_executes_flow(fake_odoo, fake_woo):
     fake_odoo.db = {"product.template": [{
         "id": 1, "name": "X", "default_code": "X-1", "list_price": 10.0,
@@ -99,6 +109,28 @@ def test_api_sync_endpoint(fake_odoo, fake_woo):
     body = resp.json()
     assert body["ok"] is True
     assert body["report"]["created"] == 1
+
+
+def test_api_sync_progress_starts_idle(fake_odoo, fake_woo):
+    app = create_viewer_app(make_config(), service=_service(fake_odoo, fake_woo))
+    data = TestClient(app).get("/api/sync/progress").json()
+    assert data["running"] is False
+    assert data["percent"] == 0
+    assert "eta_seconds" in data
+
+
+def test_api_sync_reaches_full_progress(fake_odoo, fake_woo):
+    fake_odoo.db = {"product.template": [{
+        "id": 1, "name": "X", "default_code": "X-1", "list_price": 10.0,
+        "qty_available": 1, "attribute_line_ids": [], "optional_product_ids": [],
+        "sale_ok": True, "write_date": "2026-01-01 00:00:00",
+    }]}
+    app = create_viewer_app(make_config(), service=_service(fake_odoo, fake_woo))
+    client = TestClient(app)
+    client.post("/api/sync/catalog", json={"full": True})
+    data = client.get("/api/sync/progress").json()
+    assert data["running"] is False
+    assert data["percent"] == 100
 
 
 def test_api_import_order_endpoint(fake_odoo, fake_woo):

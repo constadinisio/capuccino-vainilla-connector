@@ -105,6 +105,24 @@ def test_limit_caps_processing(fake_odoo, fake_woo):
     assert report.created == 3
 
 
+def test_run_reports_progress(fake_odoo, fake_woo):
+    """`on_progress` debe recibir avances monótonos desde (0, total) hasta
+    (total, total), para alimentar la barra de progreso del visor."""
+    fake_odoo.db = {"product.template": [_template(100 + i, f"P-{i}") for i in range(5)]}
+    calls: list[tuple[int, int]] = []
+    _service(fake_odoo, fake_woo, batch_size=2).run(
+        full=True, on_progress=lambda done, total: calls.append((done, total))
+    )
+    assert calls[0] == (0, 5)
+    assert calls[-1] == (5, 5)
+    dones = [done for done, _ in calls]
+    assert dones == sorted(dones)  # monótono no decreciente
+    assert all(total == 5 for _, total in calls)
+    # Granularidad por ítem: con batch_size=2, un progreso por lote nunca
+    # reportaría valores impares; por ítem sí (la barra avanza producto a producto).
+    assert any(done in (1, 3) for done, _ in calls)
+
+
 def test_run_with_explicit_ids_only_syncs_those(fake_odoo, fake_woo):
     fake_odoo.db = {
         "product.template": [

@@ -9,6 +9,7 @@ Procesa el catálogo por lotes paginados y en dos fases:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from ..clients.protocols import OdooApi, WooApi
@@ -80,6 +81,7 @@ class CatalogSyncService:
         since: str | None = None,
         limit: int | None = None,
         ids: list[int] | None = None,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> SyncReport:
         """Ejecuta la sincronización del catálogo.
 
@@ -88,6 +90,8 @@ class CatalogSyncService:
             since: fecha/hora UTC para sincronización incremental por `write_date`.
             limit: tope opcional de productos a procesar (para pruebas).
             ids: si se pasa, sincroniza exactamente esos templates (modo watcher).
+            on_progress: callback opcional ``(done, total)`` invocado al iniciar y
+                tras cada lote, para alimentar indicadores de progreso (visor).
         """
         domain: list = [("sale_ok", "=", True)]
         if ids is not None:
@@ -101,6 +105,19 @@ class CatalogSyncService:
             total = min(total, limit)
         report = SyncReport(total=total)
         self._log.info("Inicio de sincronización de catálogo. Productos a procesar: %s", total)
+        if on_progress is not None:
+            on_progress(0, total)
+
+        # Progreso por ítem: el tiempo se va en el I/O de cada producto, así que la
+        # barra debe avanzar producto a producto (no por lote, que con un batch
+        # grande se quedaría clavada y saltaría al final).
+        done = 0
+
+        def _bump() -> None:
+            nonlocal done
+            done += 1
+            if on_progress is not None:
+                on_progress(min(done, total), total)
 
         cross_sell_jobs: list[tuple[int, tuple[int, ...]]] = []
         offset = 0
@@ -112,8 +129,14 @@ class CatalogSyncService:
             )
             if not records:
                 break
-            self._process_batch(records, report, cross_sell_jobs)
+            self._process_batch(
+                records, report, cross_sell_jobs,
+                on_item=_bump if on_progress is not None else None,
+            )
             offset += len(records)
+            done = offset  # reconcilia el conteo con los records del lote (incluye descartados)
+            if on_progress is not None:
+                on_progress(offset, total)
 
         report.cross_sells_linked = self._sync_cross_sells(cross_sell_jobs)
         self._log.info("Sincronización de catálogo finalizada: %s", report.as_dict())
@@ -148,6 +171,7 @@ class CatalogSyncService:
         records: list[dict],
         report: SyncReport,
         cross_sell_jobs: list[tuple[int, tuple[int, ...]]],
+        on_item: Callable[[], None] | None = None,
     ) -> None:
         products = self._resolve_products(records)
 
@@ -163,6 +187,8 @@ class CatalogSyncService:
             setattr(report, outcome, getattr(report, outcome) + 1)
             if woo_id and product.accessory_template_ids:
                 cross_sell_jobs.append((woo_id, product.accessory_template_ids))
+            if on_item is not None:
+                on_item()
 
     def _upsert_product(
         self, product: OdooProduct, attribute_ids: dict[str, int]

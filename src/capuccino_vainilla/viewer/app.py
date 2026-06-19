@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from ..config import AppConfig
 from ..exceptions import ConnectorError
+from .progress import SyncProgress
 from .service import ViewerService
 
 
@@ -32,6 +33,7 @@ def _error_response(exc: Exception) -> JSONResponse:
 def create_viewer_app(config: AppConfig, service: ViewerService | None = None) -> FastAPI:
     """Crea la app del visor. ``service`` es inyectable para tests."""
     svc = service or ViewerService(config)
+    progress = SyncProgress()
     app = FastAPI(title="Capuccino Vainilla — Visor", version="1.0.0")
 
     @app.get("/", response_class=HTMLResponse)
@@ -70,11 +72,21 @@ def create_viewer_app(config: AppConfig, service: ViewerService | None = None) -
     async def sync_catalog(payload: dict = Body(default={})):
         full = bool(payload.get("full", False))
         limit = payload.get("limit")
+        progress.begin()
         try:
-            report = await run_in_threadpool(svc.run_sync, full, limit)
-            return {"ok": True, "report": report}
+            report = await run_in_threadpool(svc.run_sync, full, limit, progress.update)
         except ConnectorError as exc:
+            progress.fail(str(exc))
             return _error_response(exc)
+        except Exception as exc:  # noqa: BLE001 — marcar el progreso y propagar
+            progress.fail(str(exc))
+            raise
+        progress.finish()
+        return {"ok": True, "report": report}
+
+    @app.get("/api/sync/progress")
+    async def sync_progress() -> dict:
+        return progress.snapshot()
 
     @app.post("/api/woo/orders/{order_id}/import")
     async def import_order(order_id: int):
