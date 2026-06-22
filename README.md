@@ -69,9 +69,35 @@ lo que permite inyectar *fakes* y testear sin red.
 
 ---
 
-## 🚀 Instalación
+## 📋 Requisitos
 
-**Requisitos:** Python 3.11+ y (para el entorno de prueba) Docker.
+| Requisito | Versión | ¿Para qué? |
+|---|---|---|
+| **Python** | 3.10+ (recomendado 3.11+) | Ejecutar el conector. Verificá con `python --version`. |
+| **pip** | Incluido con Python | Instalar el paquete y sus dependencias. |
+| **Git** | Cualquiera reciente | Clonar el repositorio. |
+| **Docker Desktop / Engine** | Compose v2 | **Solo entorno de prueba:** levanta Odoo 16 + WooCommerce locales. |
+| **Bash** | — | **Solo entorno de prueba:** correr `scripts/woo-provision.sh`. En Windows viene con *Git Bash*. |
+
+> 🪟 **En Windows:** Docker Desktop usa **WSL2** como motor y lo habilita automáticamente
+> en su primera instalación (no es un requisito que instales por separado). No hace falta
+> WSL para el flujo de **producción** —ahí no se usa Docker en tu máquina— ni para correr
+> el script de aprovisionamiento, que funciona con *Git Bash*.
+
+**Dependencias de Python** (se instalan solas con `pip install -e ".[dev]"`):
+`woocommerce`, `python-dotenv`, `requests`, `fastapi`, `uvicorn[standard]`; y para
+desarrollo: `pytest`, `pytest-cov`, `httpx`, `ruff`, `mypy`.
+
+**Accesos externos** (según el entorno):
+
+- **Producción:** un **Odoo Enterprise** con XML-RPC habilitado (URL, base, usuario y **API Key**)
+  y una tienda **WooCommerce** con la **REST API** activa (claves `ck_/cs_` de Lectura/Escritura).
+- **Test:** ninguno obligatorio — el stack es 100% local. El *seeder* puede leer (solo lectura)
+  tu Odoo real para poblar el local, pero es opcional.
+
+---
+
+## 🚀 Instalación
 
 ```bash
 python -m venv .venv
