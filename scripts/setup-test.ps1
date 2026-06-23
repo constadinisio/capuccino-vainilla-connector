@@ -60,6 +60,27 @@ function Get-VenvPython {
     return Join-Path (Get-Location) ".venv\Scripts\python.exe"
 }
 
+# Ubica el bash de GIT BASH, evitando el bash.exe de WSL (System32), que falla
+# si no hay distro WSL instalada ('execvpe(/bin/bash) failed').
+function Get-GitBash {
+    # 1. Derivar de donde esta instalado git (cubre instalaciones no estandar).
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($git) {
+        $gitRoot = Split-Path (Split-Path $git.Source -Parent) -Parent
+        $candidate = Join-Path $gitRoot "bin\bash.exe"
+        if (Test-Path $candidate) { return $candidate }
+    }
+    # 2. Rutas conocidas de Git for Windows.
+    foreach ($p in @(
+        "$env:ProgramFiles\Git\bin\bash.exe",
+        "${env:ProgramFiles(x86)}\Git\bin\bash.exe",
+        "$env:LOCALAPPDATA\Programs\Git\bin\bash.exe"
+    )) {
+        if ($p -and (Test-Path $p)) { return $p }
+    }
+    return $null
+}
+
 # --------------------------------------------------------------------------- #
 #  0. Prerequisitos
 # --------------------------------------------------------------------------- #
@@ -76,12 +97,17 @@ if (-not (Test-Path "docker-compose.yml")) {
 }
 Write-Ok "Raiz del repo detectada."
 
-foreach ($cmd in @("docker", "bash")) {
-    if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
-        Write-Err "Falta '$cmd' en el PATH. (bash viene con Git Bash.)"
-        exit 1
-    }
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Write-Err "Falta 'docker' en el PATH. Instala Docker Desktop."
+    exit 1
 }
+$bash = Get-GitBash
+if (-not $bash) {
+    Write-Err "No encontre Git Bash. Instala Git for Windows (trae el bash que usa woo-provision.sh)."
+    Write-Err "Ojo: el 'bash' de WSL en System32 no sirve aca."
+    exit 1
+}
+Write-Ok "Git Bash encontrado: $bash"
 # --- Python + .venv + instalacion del conector (todo automatico) ---
 $python = Get-VenvPython
 if (-not (Test-Path $python)) {
@@ -174,7 +200,7 @@ Write-Ok "Modulo 'stock' instalado."
 #  3. Aprovisionar WooCommerce y capturar las claves
 # --------------------------------------------------------------------------- #
 Write-Step "Aprovisionando WooCommerce (WordPress + Woo + API key)"
-$wooOutput = bash scripts/woo-provision.sh 2>&1
+$wooOutput = & $bash "scripts/woo-provision.sh" 2>&1
 $wooOutput | ForEach-Object { Write-Host "    | $_" -ForegroundColor DarkGray }
 if ($LASTEXITCODE -ne 0) { Write-Err "Fallo el aprovisionamiento de WooCommerce."; exit 1 }
 
