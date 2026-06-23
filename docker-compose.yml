@@ -1,10 +1,15 @@
 # Orquestación local del conector.
-#   docker compose up webhook            -> levanta el servidor de webhooks
-#   docker compose run --rm sync         -> corre una sincronización de catálogo
+#   Los servicios del conector (webhook, watcher) viven bajo el profile "connector"
+#   para que NO se levanten en el entorno de prueba (--profile odoo --profile woo),
+#   donde el conector se corre en el host. Se levantan nombrándolos o con su profile:
+#   docker compose up -d watcher webhook            -> levanta conector (producción)
+#   docker compose --profile connector up -d        -> idem, vía profile
+#   docker compose run --rm sync                     -> corre una sincronización de catálogo
 services:
   webhook:
     build: .
     image: capuccino-vainilla:latest
+    profiles: ["connector"]
     env_file: .env
     command: ["serve"]
     ports:
@@ -30,6 +35,7 @@ services:
   watcher:
     build: .
     image: capuccino-vainilla:latest
+    profiles: ["connector"]
     env_file: .env
     command: ["watch"]
     restart: unless-stopped
