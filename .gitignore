@@ -1,9 +1,16 @@
 .venv/
 __pycache__/
 *.pyc
+
+# --- Entorno / secretos (NUNCA versionar credenciales reales) ---
+# Ignora todos los .env y sus variantes (.env.local, .env.seed, .env.test,
+# .env.production, etc.) y conserva SOLO las plantillas *.example.
 .env
-.env.seed
-.env.local
+.env.*
+!.env.example
+!.env.seed.example
+!.env.test.example
+
 sync.log
 seed.log
 logs/
