@@ -29,7 +29,10 @@ param(
     [string]$EnvFile = ".env.local"
 )
 
-$ErrorActionPreference = "Stop"
+# 'Continue' a proposito: con 'Stop', cualquier comando NATIVO (python, docker,
+# bash) que escriba a stderr aborta el script en PowerShell 5.1. El control de
+# errores real lo hacemos chequeando $LASTEXITCODE despues de cada comando.
+$ErrorActionPreference = "Continue"
 
 # --------------------------------------------------------------------------- #
 #  Utilidades de salida
@@ -95,7 +98,8 @@ if (-not (Test-Path $python)) {
 if ($LASTEXITCODE -ne 0) { Write-Err "El Python del .venv no responde."; exit 1 }
 
 # Instala el conector si todavia no esta en el .venv (idempotente).
-& $python -c "import capuccino_vainilla" 2>$null
+# Usamos find_spec (no 'import') para que NO imprima un traceback en stderr.
+& $python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('capuccino_vainilla') else 1)"
 if ($LASTEXITCODE -ne 0) {
     Write-Step "Instalando el conector en el .venv (pip install -e .[dev])"
     & $python -m pip install --upgrade pip | Out-Null
@@ -226,7 +230,12 @@ LOG_FILE=sync-test.log
 STATE_FILE=.sync_state.test.json
 "@
 
-Set-Content -Path $EnvFile -Value $envContent -Encoding UTF8
+try {
+    Set-Content -Path $EnvFile -Value $envContent -Encoding UTF8 -ErrorAction Stop
+} catch {
+    Write-Err "No se pudo escribir $EnvFile : $($_.Exception.Message)"
+    exit 1
+}
 Write-Ok "$EnvFile escrito."
 
 # --------------------------------------------------------------------------- #
