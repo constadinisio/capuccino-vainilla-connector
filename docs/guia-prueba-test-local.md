@@ -47,20 +47,29 @@ de "producción" es **qué archivo `.env` se usa**. En test usamos `.env.local` 
 ## ⚡ Atajo: setup automatizado (un comando)
 
 Si no querés hacer los pasos a mano, hay un script interactivo que monta **todo** el
-entorno de prueba de una: levanta los contenedores, crea la base de Odoo + admin, instala
-`stock`, aprovisiona WooCommerce, escribe el `.env.local`, crea el webhook y (opcional)
-puebla el catálogo.
+entorno de prueba de una: crea el `.venv` e instala el conector (si falta), levanta los
+contenedores, crea la base de Odoo + admin, instala `stock`, aprovisiona WooCommerce,
+escribe el `.env.local`, crea el webhook y (opcional) puebla el catálogo.
+
+**Funciona recién clonado de GitHub** — no necesitás ningún `.env` con valores cargados
+(el script genera el `.env.local` solo) ni tener el conector preinstalado. Lo único
+imprescindible: **Docker Desktop abierto**, y Python + Git Bash en el PATH.
 
 ```powershell
-# Parado en la raíz del repo, con el .venv activado:
+# Parado en la raíz del repo (no hace falta activar nada):
 .\scripts\setup-test.ps1
 ```
 
 Te va a ir **preguntando** los datos (nombre de la base, usuario/clave del admin de Odoo,
 si poblás el catálogo, si creás el webhook) y muestra el progreso paso por paso. Es
-**idempotente**: si lo volvés a correr, no recrea la base ni el módulo si ya existen.
+**idempotente**: si lo volvés a correr, no recrea el `.venv`, la base ni el módulo si ya existen.
 
 Al terminar te imprime los comandos para validar (`viewer`, `sync-catalog`, `serve`).
+
+> ℹ️ El único paso que **sí** necesita un `.env` con valores es poblar el catálogo con el
+> seeder: requiere un `.env.seed` con las credenciales del Odoo real (solo lectura). Si
+> respondés que **no** a esa pregunta, el entorno queda igual de funcional, solo que Odoo
+> local arranca vacío.
 
 > 🧩 Por dentro, el `.ps1` orquesta Docker, los prompts, el aprovisionamiento de Woo y la
 > creación del webhook; y delega en `scripts/odoo_bootstrap.py` (Python stdlib, sin

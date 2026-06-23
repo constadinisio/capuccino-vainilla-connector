@@ -52,11 +52,9 @@ function Confirm-YesNo ($prompt, $defaultYes = $true) {
     return $value -match '^(s|si|sí|y|yes)$'
 }
 
-# Elige el python del venv si existe; si no, el del PATH.
-function Get-Python {
-    $venvPython = Join-Path (Get-Location) ".venv\Scripts\python.exe"
-    if (Test-Path $venvPython) { return $venvPython }
-    return "python"
+# Ruta al python del .venv (exista o no todavia).
+function Get-VenvPython {
+    return Join-Path (Get-Location) ".venv\Scripts\python.exe"
 }
 
 # --------------------------------------------------------------------------- #
@@ -81,9 +79,37 @@ foreach ($cmd in @("docker", "bash")) {
         exit 1
     }
 }
-$python = Get-Python
+# --- Python + .venv + instalacion del conector (todo automatico) ---
+$python = Get-VenvPython
+if (-not (Test-Path $python)) {
+    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+        Write-Err "No encuentro 'python' en el PATH para crear el .venv. Instala Python 3.10+."
+        exit 1
+    }
+    Write-Step "Creando el entorno virtual (.venv)"
+    python -m venv .venv
+    if ($LASTEXITCODE -ne 0) { Write-Err "No se pudo crear el .venv."; exit 1 }
+    Write-Ok ".venv creado."
+}
 & $python --version | Out-Null
-if ($LASTEXITCODE -ne 0) { Write-Err "No encuentro Python. Activa el .venv."; exit 1 }
+if ($LASTEXITCODE -ne 0) { Write-Err "El Python del .venv no responde."; exit 1 }
+
+# Instala el conector si todavia no esta en el .venv (idempotente).
+& $python -c "import capuccino_vainilla" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Step "Instalando el conector en el .venv (pip install -e .[dev])"
+    & $python -m pip install --upgrade pip | Out-Null
+    & $python -m pip install -e ".[dev]"
+    if ($LASTEXITCODE -ne 0) { Write-Err "Fallo 'pip install -e .[dev]'. Revisa la salida."; exit 1 }
+    Write-Ok "Conector instalado."
+} else {
+    Write-Ok "Conector ya instalado en el .venv."
+}
+
+# Rutas a los entrypoints del .venv: funcionan SIN tener que activar el venv.
+$cliExe  = Join-Path (Get-Location) ".venv\Scripts\capuccino-vainilla.exe"
+$seedExe = Join-Path (Get-Location) ".venv\Scripts\seed-odoo.exe"
+
 Write-Ok "Docker, bash y Python disponibles ($python)."
 
 try { docker info 2>$null | Out-Null } catch {}
@@ -238,7 +264,7 @@ if ($doSeed) {
     if (-not (Test-Path ".env.seed")) {
         Write-Warn "No existe .env.seed. Copia .env.seed.example -> .env.seed y completalo, despues corre 'seed-odoo'."
     } else {
-        seed-odoo
+        & $seedExe
         if ($LASTEXITCODE -ne 0) { Write-Warn "El seeder termino con errores. Revisa la salida." }
         else { Write-Ok "Catalogo poblado." }
     }
@@ -252,16 +278,20 @@ Write-Host "  Entorno de prueba LISTO." -ForegroundColor Green
 Write-Host "================================================================" -ForegroundColor Green
 Write-Host @"
 
-Proximos pasos:
+Proximos pasos (activa el .venv y usa 'capuccino-vainilla' a secas,
+o copia/pega tal cual estos comandos con la ruta del .venv):
+
+  # (una vez) activar el entorno
+  .venv\Scripts\Activate.ps1
 
   # Ver estado de conexion (ambos paneles en verde)
-  capuccino-vainilla --env-file $EnvFile viewer
+  .venv\Scripts\capuccino-vainilla --env-file $EnvFile viewer
 
   # Flujo 1 - catalogo Odoo -> Woo (acotado para validar rapido)
-  capuccino-vainilla --env-file $EnvFile sync-catalog --limit 5 --full
+  .venv\Scripts\capuccino-vainilla --env-file $EnvFile sync-catalog --limit 5 --full
 
   # Flujo 2 - levantar el servidor de webhooks (en el host)
-  capuccino-vainilla --env-file $EnvFile serve
+  .venv\Scripts\capuccino-vainilla --env-file $EnvFile serve
 
   # Apagar todo al terminar
   docker compose --profile odoo --profile woo down
