@@ -44,6 +44,34 @@ de "producción" es **qué archivo `.env` se usa**. En test usamos `.env.local` 
 
 ---
 
+## ⚡ Atajo: setup automatizado (un comando)
+
+Si no querés hacer los pasos a mano, hay un script interactivo que monta **todo** el
+entorno de prueba de una: levanta los contenedores, crea la base de Odoo + admin, instala
+`stock`, aprovisiona WooCommerce, escribe el `.env.local`, crea el webhook y (opcional)
+puebla el catálogo.
+
+```powershell
+# Parado en la raíz del repo, con el .venv activado:
+.\scripts\setup-test.ps1
+```
+
+Te va a ir **preguntando** los datos (nombre de la base, usuario/clave del admin de Odoo,
+si poblás el catálogo, si creás el webhook) y muestra el progreso paso por paso. Es
+**idempotente**: si lo volvés a correr, no recrea la base ni el módulo si ya existen.
+
+Al terminar te imprime los comandos para validar (`viewer`, `sync-catalog`, `serve`).
+
+> 🧩 Por dentro, el `.ps1` orquesta Docker, los prompts, el aprovisionamiento de Woo y la
+> creación del webhook; y delega en `scripts/odoo_bootstrap.py` (Python stdlib, sin
+> dependencias nuevas) las operaciones XML-RPC contra Odoo. Si algo falla, frená y mirá el
+> mensaje: cada paso te dice qué salió mal.
+
+El resto de esta guía es el **paso a paso manual equivalente**, útil para entender qué hace
+el script o para diagnosticar si un paso falla.
+
+---
+
 ## Paso 0 — Preparar la terminal
 
 1. Abrí **Docker Desktop** y esperá a que diga **running** (ballena verde). Si no está corriendo, todo lo de Docker falla.
