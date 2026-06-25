@@ -22,7 +22,14 @@ echo "==> Ajustando permisos de wp-content para el usuario woo-cli (uid 82)..."
 MSYS_NO_PATHCONV=1 docker compose --profile woo exec -T woo chmod -R 777 /var/www/html/wp-content
 
 echo "==> Instalando y activando WooCommerce..."
-$WP plugin install woocommerce --activate
+# Idempotente: si la carpeta del plugin ya existe (corrida previa), 'plugin install'
+# aborta con "Destination folder already exists". Detectamos el caso y solo activamos.
+if $WP plugin is-installed woocommerce; then
+  echo "    WooCommerce ya esta instalado; activando..."
+  $WP plugin activate woocommerce || true
+else
+  $WP plugin install woocommerce --activate
+fi
 
 echo "==> Instalando mu-plugin para Basic Auth sobre HTTP..."
 MSYS_NO_PATHCONV=1 docker compose --profile woo exec -T woo mkdir -p /var/www/html/wp-content/mu-plugins
