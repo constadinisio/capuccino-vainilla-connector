@@ -43,6 +43,17 @@ def _get_int(key: str, default: int) -> int:
         raise ConfigError(f"La variable '{key}' debe ser un entero; se recibió {raw!r}.") from exc
 
 
+def _get_optional_int(key: str) -> int | None:
+    """Entero opcional: devuelve None si la variable no está definida."""
+    raw = os.getenv(key)
+    if raw is None or not raw.strip():
+        return None
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ConfigError(f"La variable '{key}' debe ser un entero; se recibió {raw!r}.") from exc
+
+
 def _get_float(key: str, default: float) -> float:
     raw = os.getenv(key)
     if raw is None or not raw.strip():
@@ -76,6 +87,10 @@ class OdooConfig:
     db: str
     username: str
     password: str
+    # Compañía a la que se acota TODA operación (allowed_company_ids). En el Odoo
+    # multi-compañía de Pinnacle/GPTV esto excluye GPTV y deja solo Pinnacle +
+    # productos compartidos. None => sin acotar (comportamiento histórico).
+    company_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -136,6 +151,7 @@ def load_config(env_file: str | None = None) -> AppConfig:
         db=_get_required("ODOO_DB"),
         username=_get_required("ODOO_USERNAME"),
         password=_get_required("ODOO_PASSWORD"),
+        company_id=_get_optional_int("ODOO_COMPANY_ID"),
     )
     woo = WooConfig(
         url=_validate_url("WOO_URL", _get_required("WOO_URL")),

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-from ..config import OdooConfig, _validate_url
+from ..config import OdooConfig, _get_optional_int, _validate_url
 from ..exceptions import ConfigError
 
 
@@ -37,6 +37,7 @@ def _odoo_config(prefix: str) -> OdooConfig:
         db=_required(f"{prefix}_DB"),
         username=_required(f"{prefix}_USERNAME"),
         password=_required(f"{prefix}_PASSWORD"),
+        company_id=_get_optional_int(f"{prefix}_COMPANY_ID"),
     )
 
 

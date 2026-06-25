@@ -78,3 +78,22 @@ def test_transient_error_is_retried_then_succeeds():
 def test_transient_error_exhausted_raises_odoo_error():
     with pytest.raises(OdooError):
         _client({"search_count": ConnectionError("caída")}).search_count("res.partner", [])
+
+
+def test_company_scope_injected_into_context():
+    """Con company_id se fuerza allowed_company_ids en cada llamada (excluye GPTV)."""
+    scoped = OdooConfig(url="http://odoo.test", db="db", username="u", password="p", company_id=134)
+    models = FakeModels({"search_read": []})
+    client = OdooClient(scoped, RUNTIME, models=models, uid=1)
+    client.search_read("product.template", [], ["id"])
+    _, _, _, kwargs = models.calls[0]
+    assert kwargs["context"]["allowed_company_ids"] == [134]
+
+
+def test_no_company_scope_when_unset():
+    """Sin company_id no se agrega contexto (comportamiento histórico intacto)."""
+    models = FakeModels({"search_read": []})
+    client = OdooClient(ODOO, RUNTIME, models=models, uid=1)
+    client.search_read("product.template", [], ["id"])
+    _, _, _, kwargs = models.calls[0]
+    assert "context" not in kwargs

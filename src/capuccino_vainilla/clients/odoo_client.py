@@ -79,8 +79,17 @@ class OdooClient:
     # -- Llamada genérica --------------------------------------------------
 
     def execute_kw(self, model: str, method: str, args: list, kwargs: dict | None = None) -> Any:
-        """Ejecuta ``model.method`` con reintentos; relanza ``OdooError`` si falla."""
-        kwargs = kwargs or {}
+        """Ejecuta ``model.method`` con reintentos; relanza ``OdooError`` si falla.
+
+        Si la configuración define ``company_id``, se fuerza
+        ``context['allowed_company_ids']`` en cada llamada para acotar lecturas y
+        escrituras a esa compañía (excluye GPTV; incluye productos compartidos).
+        """
+        kwargs = dict(kwargs or {})
+        if self._config.company_id is not None:
+            context = dict(kwargs.get("context") or {})
+            context["allowed_company_ids"] = [self._config.company_id]
+            kwargs["context"] = context
 
         def _operation() -> Any:
             return self._models.execute_kw(
