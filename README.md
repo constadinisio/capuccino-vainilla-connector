@@ -97,12 +97,48 @@ desarrollo: `pytest`, `pytest-cov`, `httpx`, `ruff`, `mypy`.
 
 ---
 
-## 🚀 Instalación
+## ⚡ Instalación automatizada (un comando)
 
-> ⚡ **¿Querés solo probarlo?** Hay un script que monta **todo el entorno de prueba en un
-> comando** (incluido el `.venv` y el `.env.local`), sin instalar nada a mano:
-> `.\scripts\setup-test.ps1` — ver [Instalación automatizada](#-instalación-automatizada-un-comando).
-> Los pasos de abajo son la instalación manual, necesaria para **producción**.
+**La vía recomendada para probar el sistema.** `scripts/setup-test.ps1` monta el **entorno de
+prueba completo** de punta a punta, de forma interactiva. Funciona **recién clonado del repo**:
+no hace falta tener el `.venv` creado, ni el conector instalado, ni ningún `.env` con valores
+cargados.
+
+```powershell
+# Parado en la raíz del repo, con Docker Desktop abierto. No hace falta activar nada.
+.\scripts\setup-test.ps1
+```
+
+Qué hace, en orden:
+
+| # | Paso | Detalle |
+|---|---|---|
+| 0 | **Prerequisitos** | Verifica Docker corriendo, Python y *Git Bash* (evita el `bash.exe` de WSL). |
+| 1 | **`.venv` + conector** | Crea el entorno virtual y corre `pip install -e ".[dev]"` si faltan. |
+| 2 | **Contenedores** | `docker compose --profile odoo --profile woo up -d` y espera a que Odoo responda. |
+| 3 | **Base de Odoo** | Crea la base y el usuario admin con los datos que te pregunta. |
+| 4 | **Módulos de Odoo** | Instala `stock` (para `qty_available`) y `sale_management` (para `optional_product_ids`). |
+| 5 | **WooCommerce** | Corre `woo-provision.sh` y captura las claves REST (`ck_`/`cs_`) de la salida. |
+| 6 | **`.env.local`** | Lo escribe con todo lo anterior + un `WEBHOOK_SECRET` aleatorio (respalda el previo en `.bak`). |
+| 7 | **Webhook** *(opcional)* | Crea el webhook `order.created` en Woo apuntando al conector. |
+| 8 | **Catálogo** *(opcional)* | Puebla Odoo con el seeder (requiere un `.env.seed` configurado). |
+
+Es **idempotente**: re-correrlo no recrea el `.venv`, la base ni los módulos si ya existen. Por
+dentro delega en `scripts/odoo_bootstrap.py` (XML-RPC, solo *stdlib*) y en
+`scripts/woo-provision.sh`. Al terminar imprime los comandos para validar (`viewer`,
+`sync-catalog`, `serve`).
+
+> ⚠️ **Solo para pruebas locales.** Todo apunta a `localhost`; nunca lo corras contra producción.
+> El único paso que necesita credenciales reales es el seeder, y accede al Odoo real en **solo lectura**.
+
+Detalle completo en [`docs/guia-prueba-test-local.md`](docs/guia-prueba-test-local.md); el
+paso a paso manual equivalente, más abajo en **Entorno de prueba local**.
+
+---
+
+## 🚀 Instalación manual
+
+Necesaria para **producción** (el script de arriba solo sirve para el entorno de prueba local).
 
 ```bash
 python -m venv .venv
@@ -245,44 +281,6 @@ docker compose --profile odoo --profile woo up -d
 
 > Ver la guía de **inicialización** más abajo para poblar estas instancias y validar
 > los dos flujos punta a punta.
-
----
-
-## ⚡ Instalación automatizada (un comando)
-
-`scripts/setup-test.ps1` monta el **entorno de prueba completo** de punta a punta, de forma
-interactiva. Funciona **recién clonado del repo**: no hace falta tener el `.venv` creado, ni el
-conector instalado, ni ningún `.env` con valores cargados.
-
-```powershell
-# Parado en la raíz del repo, con Docker Desktop abierto. No hace falta activar nada.
-.\scripts\setup-test.ps1
-```
-
-Qué hace, en orden:
-
-| # | Paso | Detalle |
-|---|---|---|
-| 0 | **Prerequisitos** | Verifica Docker corriendo, Python y *Git Bash* (evita el `bash.exe` de WSL). |
-| 1 | **`.venv` + conector** | Crea el entorno virtual y corre `pip install -e ".[dev]"` si faltan. |
-| 2 | **Contenedores** | `docker compose --profile odoo --profile woo up -d` y espera a que Odoo responda. |
-| 3 | **Base de Odoo** | Crea la base y el usuario admin con los datos que te pregunta. |
-| 4 | **Módulos de Odoo** | Instala `stock` (para `qty_available`) y `sale_management` (para `optional_product_ids`). |
-| 5 | **WooCommerce** | Corre `woo-provision.sh` y captura las claves REST (`ck_`/`cs_`) de la salida. |
-| 6 | **`.env.local`** | Lo escribe con todo lo anterior + un `WEBHOOK_SECRET` aleatorio (respalda el previo en `.bak`). |
-| 7 | **Webhook** *(opcional)* | Crea el webhook `order.created` en Woo apuntando al conector. |
-| 8 | **Catálogo** *(opcional)* | Puebla Odoo con el seeder (requiere un `.env.seed` configurado). |
-
-Es **idempotente**: re-correrlo no recrea el `.venv`, la base ni los módulos si ya existen. Por
-dentro delega en `scripts/odoo_bootstrap.py` (XML-RPC, solo *stdlib*) y en
-`scripts/woo-provision.sh`. Al terminar imprime los comandos para validar (`viewer`,
-`sync-catalog`, `serve`).
-
-> ⚠️ **Solo para pruebas locales.** Todo apunta a `localhost`; nunca lo corras contra producción.
-> El único paso que necesita credenciales reales es el seeder, y accede al Odoo real en **solo lectura**.
-
-Detalle completo (y el paso a paso manual equivalente) en
-[`docs/guia-prueba-test-local.md`](docs/guia-prueba-test-local.md).
 
 ---
 
