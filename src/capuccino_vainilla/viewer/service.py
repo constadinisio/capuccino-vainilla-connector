@@ -153,6 +153,7 @@ class ViewerService:
     ) -> dict:
         service = CatalogSyncService(
             self._odoo(), self._woo(), AttributeSyncService(self._woo()),
+            self._config.odoo.url,
             batch_size=self._config.runtime.batch_size, logger=self._log,
         )
         report = service.run(full=full, since=None, limit=limit, on_progress=on_progress)

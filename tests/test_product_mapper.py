@@ -47,3 +47,15 @@ def test_attributes_use_global_id():
 def test_attribute_without_resolved_id_is_skipped():
     payload = build_woo_product_payload(_product(), {})  # mapa vacío
     assert payload["attributes"] == []
+
+
+def test_images_included_when_present():
+    urls = ("http://odoo.test/web/image/product.template/101/image_1920",
+            "http://odoo.test/web/image/product.image/5/image_1920")
+    payload = build_woo_product_payload(_product(image_urls=urls), {})
+    assert payload["images"] == [{"src": urls[0]}, {"src": urls[1]}]
+
+
+def test_images_key_omitted_when_no_images():
+    payload = build_woo_product_payload(_product(image_urls=()), {})
+    assert "images" not in payload

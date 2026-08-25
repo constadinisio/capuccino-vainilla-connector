@@ -6,9 +6,10 @@ from capuccino_vainilla.services.attribute_sync import AttributeSyncService
 from capuccino_vainilla.services.catalog_sync import CatalogSyncService
 
 
-def _service(fake_odoo, fake_woo, batch_size=50):
+def _service(fake_odoo, fake_woo, batch_size=50, odoo_base_url="http://odoo.test"):
     return CatalogSyncService(
-        fake_odoo, fake_woo, AttributeSyncService(fake_woo), batch_size=batch_size
+        fake_odoo, fake_woo, AttributeSyncService(fake_woo), odoo_base_url,
+        batch_size=batch_size,
     )
 
 
@@ -145,6 +146,50 @@ def test_unpublish_sets_draft_for_known_skus(fake_odoo, fake_woo):
         c[0] == "put" and c[1] == "products/200" and c[2] == {"status": "draft"}
         for c in fake_woo.calls
     )
+
+
+def test_builds_main_image_url_when_present(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [_template(101, "CAM-1", image_128="fake-thumb-b64")],
+    }
+    _service(fake_odoo, fake_woo).run(full=True)
+    images = fake_woo.products_by_sku["CAM-1"]["images"]
+    assert images[0] == {"src": "http://odoo.test/web/image/product.template/101/image_1920"}
+
+
+def test_omits_images_key_when_no_main_or_gallery_image(fake_odoo, fake_woo):
+    fake_odoo.db = {"product.template": [_template(101, "CAM-1")]}
+    _service(fake_odoo, fake_woo).run(full=True)
+    assert "images" not in fake_woo.products_by_sku["CAM-1"]
+
+
+def test_gallery_images_appended_after_main_ordered_by_sequence(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [
+            _template(101, "CAM-1", image_128="fake-thumb-b64", product_template_image_ids=[7, 6]),
+        ],
+        "product.image": [
+            {"id": 6, "sequence": 1},
+            {"id": 7, "sequence": 2},
+        ],
+    }
+    _service(fake_odoo, fake_woo).run(full=True)
+    images = fake_woo.products_by_sku["CAM-1"]["images"]
+    assert images == [
+        {"src": "http://odoo.test/web/image/product.template/101/image_1920"},
+        {"src": "http://odoo.test/web/image/product.image/6/image_1920"},
+        {"src": "http://odoo.test/web/image/product.image/7/image_1920"},
+    ]
+
+
+def test_gallery_without_main_image(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [_template(101, "CAM-1", product_template_image_ids=[6])],
+        "product.image": [{"id": 6, "sequence": 1}],
+    }
+    _service(fake_odoo, fake_woo).run(full=True)
+    images = fake_woo.products_by_sku["CAM-1"]["images"]
+    assert images == [{"src": "http://odoo.test/web/image/product.image/6/image_1920"}]
 
 
 def test_resync_republishes_a_drafted_product(fake_odoo, fake_woo):

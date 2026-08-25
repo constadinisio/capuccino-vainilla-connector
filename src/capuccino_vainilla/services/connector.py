@@ -30,7 +30,7 @@ class OdooWooConnector:
         # Servicios de negocio.
         attribute_service = AttributeSyncService(self.woo, get_logger("attributes"))
         self.catalog = CatalogSyncService(
-            self.odoo, self.woo, attribute_service,
+            self.odoo, self.woo, attribute_service, config.odoo.url,
             batch_size=config.runtime.batch_size, logger=get_logger("catalog"),
         )
         self.orders = OrderImportService(self.odoo, get_logger("orders"))

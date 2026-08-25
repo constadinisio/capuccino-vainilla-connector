@@ -29,6 +29,8 @@ ODOO_PRODUCT_FIELDS = [
     "qty_available",         # Stock disponible
     "attribute_line_ids",    # Líneas de atributos (ficha técnica)
     "optional_product_ids",  # Accesorios / ventas cruzadas
+    "image_128",              # Miniatura liviana: solo para saber si hay imagen principal
+    "product_template_image_ids",  # Líneas de la galería (modelo product.image)
 ]
 
 
@@ -62,12 +64,14 @@ class CatalogSyncService:
         odoo: OdooApi,
         woo: WooApi,
         attribute_service: AttributeSyncService,
+        odoo_base_url: str,
         batch_size: int = 50,
         logger: logging.Logger | None = None,
     ):
         self._odoo = odoo
         self._woo = woo
         self._attributes = attribute_service
+        self._odoo_base_url = odoo_base_url.rstrip("/")
         self._batch_size = max(1, batch_size)
         self._log = logger or get_logger("catalog")
         self._sku_to_woo_id: dict[str, int] = {}  # caché SKU -> id producto Woo
@@ -234,6 +238,9 @@ class CatalogSyncService:
         value_ids = [vid for line in line_map.values() for vid in line["value_ids"]]
         value_names = self._read_value_names(value_ids)
 
+        image_ids = [iid for rec in records for iid in (rec.get("product_template_image_ids") or [])]
+        gallery_sequence = self._read_gallery_sequence(image_ids)
+
         products: list[OdooProduct] = []
         for rec in records:
             attributes = self._build_attributes(
@@ -248,8 +255,35 @@ class CatalogSyncService:
                 quantity=int(rec.get("qty_available") or 0),
                 attributes=attributes,
                 accessory_template_ids=tuple(rec.get("optional_product_ids") or []),
+                image_urls=self._build_image_urls(rec, gallery_sequence),
             ))
         return products
+
+    def _read_gallery_sequence(self, image_ids: list[int]) -> dict[int, int]:
+        if not image_ids:
+            return {}
+        records = self._odoo.read("product.image", image_ids, ["sequence"])
+        return {rec["id"]: int(rec.get("sequence") or 0) for rec in records}
+
+    def _build_image_urls(self, rec: dict, gallery_sequence: dict[int, int]) -> tuple[str, ...]:
+        """Imagen principal primero (si existe), luego la galería por `sequence`.
+
+        No se lee el binario de las imágenes: alcanza con el id del template
+        (imagen principal) y los ids de `product.image` (galería) para armar
+        URLs públicas de Odoo (`/web/image/...`), que Woo descarga solo.
+        """
+        urls: list[str] = []
+        if rec.get("image_128"):
+            urls.append(
+                f"{self._odoo_base_url}/web/image/product.template/{rec['id']}/image_1920"
+            )
+        gallery_ids = rec.get("product_template_image_ids") or []
+        ordered_ids = sorted(gallery_ids, key=lambda iid: gallery_sequence.get(iid, 0))
+        urls.extend(
+            f"{self._odoo_base_url}/web/image/product.image/{iid}/image_1920"
+            for iid in ordered_ids
+        )
+        return tuple(urls)
 
     def _read_attribute_lines(self, line_ids: list[int]) -> dict[int, dict]:
         if not line_ids:

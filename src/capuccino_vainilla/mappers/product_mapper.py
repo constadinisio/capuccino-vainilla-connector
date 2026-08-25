@@ -41,7 +41,7 @@ def build_woo_product_payload(
         product: producto normalizado de Odoo.
         attribute_ids: mapa ``nombre_atributo.lower() -> id_atributo_global_woo``.
     """
-    return {
+    payload = {
         "name": product.name,
         "sku": product.sku,
         "type": "simple",
@@ -56,3 +56,8 @@ def build_woo_product_payload(
         # Trazabilidad inversa: id de Odoo guardado como meta dato.
         "meta_data": [{"key": ODOO_ID_META_KEY, "value": str(product.odoo_id)}],
     }
+    # Se omite la clave si Odoo no tiene imágenes: evita vaciar una galería ya
+    # cargada en Woo mientras el catálogo se completa gradualmente.
+    if product.image_urls:
+        payload["images"] = [{"src": url} for url in product.image_urls]
+    return payload
