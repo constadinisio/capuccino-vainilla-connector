@@ -193,9 +193,10 @@ Write-Ok "Base de Odoo lista."
 # Modulos requeridos para que el Odoo local espeje produccion:
 #   - stock: campo qty_available (stock disponible)
 #   - sale_management: campo optional_product_ids (ventas cruzadas / accesorios)
+#   - website_sale: campo public_categ_ids (categorias de tienda)
 # Sin sale_management, el seeder/sync/viewer fallan con
 # "Invalid field 'optional_product_ids' on model 'product.template'".
-foreach ($mod in @("stock", "sale_management")) {
+foreach ($mod in @("stock", "sale_management", "website_sale")) {
     Write-Step "Instalando el modulo '$mod' en Odoo"
     & $python scripts/odoo_bootstrap.py --url $odooUrl install-module `
         --db-name $odooDb --admin-login $odooLogin --admin-password $odooPassword --module $mod

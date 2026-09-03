@@ -321,7 +321,7 @@ function renderReport(r) {
   box.style.display = "flex";
   const chip = (label, val) => `<div class="chip"><b>${val}</b><span>${label}</span></div>`;
   box.innerHTML = chip("Total", r.total) + chip("Creados", r.created) + chip("Actualizados", r.updated) +
-    chip("Omitidos", r.skipped) + chip("Fallidos", r.failed) + chip("Cross-sell", r.cross_sells_linked);
+    chip("Omitidos", r.skipped) + chip("Fallidos", r.failed) + chip("Upsells", r.upsells_linked);
 }
 
 // ---- Flujo 2: pedidos ----

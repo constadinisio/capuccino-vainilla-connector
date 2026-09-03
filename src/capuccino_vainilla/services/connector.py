@@ -13,6 +13,7 @@ from ..config import AppConfig
 from ..logging_config import get_logger
 from .attribute_sync import AttributeSyncService
 from .catalog_sync import CatalogSyncService, SyncReport
+from .category_tag_sync import CategoryTagSyncService
 from .order_import import OrderImportService
 
 
@@ -29,8 +30,9 @@ class OdooWooConnector:
 
         # Servicios de negocio.
         attribute_service = AttributeSyncService(self.woo, get_logger("attributes"))
+        category_tag_service = CategoryTagSyncService(self.woo, get_logger("categories"))
         self.catalog = CatalogSyncService(
-            self.odoo, self.woo, attribute_service, config.odoo.url,
+            self.odoo, self.woo, attribute_service, category_tag_service, config.odoo.url,
             batch_size=config.runtime.batch_size, logger=get_logger("catalog"),
         )
         self.orders = OrderImportService(self.odoo, get_logger("orders"))

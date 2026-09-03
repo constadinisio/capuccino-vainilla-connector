@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import threading
+
 from capuccino_vainilla.services.attribute_sync import AttributeSyncService
 from capuccino_vainilla.services.catalog_sync import CatalogSyncService
+from capuccino_vainilla.services.category_tag_sync import CategoryTagSyncService
 
 
-def _service(fake_odoo, fake_woo, batch_size=50, odoo_base_url="http://odoo.test"):
+def _service(
+    fake_odoo, fake_woo, batch_size=50, odoo_base_url="http://odoo.test"
+):
     return CatalogSyncService(
-        fake_odoo, fake_woo, AttributeSyncService(fake_woo), odoo_base_url,
-        batch_size=batch_size,
+        fake_odoo, fake_woo, AttributeSyncService(fake_woo), CategoryTagSyncService(fake_woo),
+        odoo_base_url, batch_size=batch_size,
     )
 
 
@@ -18,6 +23,7 @@ def _template(tid, sku, **extra):
         "id": tid, "name": f"Producto {tid}", "default_code": sku,
         "list_price": 1000.0, "description_sale": "desc", "qty_available": 5,
         "attribute_line_ids": [], "optional_product_ids": [],
+        "public_categ_ids": [], "product_tag_ids": [],
         "sale_ok": True, "write_date": "2026-01-01 00:00:00",
     }
     base.update(extra)
@@ -68,7 +74,7 @@ def test_failed_product_does_not_stop_batch(fake_odoo, fake_woo):
     assert report.failed == 2  # ambos fallan pero el lote completa
 
 
-def test_cross_sell_linking(fake_odoo, fake_woo):
+def test_upsell_linking(fake_odoo, fake_woo):
     fake_odoo.db = {
         "product.template": [
             _template(101, "CAM-1", optional_product_ids=[102]),
@@ -78,10 +84,10 @@ def test_cross_sell_linking(fake_odoo, fake_woo):
     report = _service(fake_odoo, fake_woo).run(full=True)
 
     assert report.created == 2
-    assert report.cross_sells_linked == 1
+    assert report.upsells_linked == 1
     accessory_woo_id = fake_woo.products_by_sku["ACC-1"]["id"]
     main_woo_id = fake_woo.products_by_sku["CAM-1"]["id"]
-    assert fake_woo.products[main_woo_id]["cross_sell_ids"] == [accessory_woo_id]
+    assert fake_woo.products[main_woo_id]["upsell_ids"] == [accessory_woo_id]
 
 
 def test_incremental_filters_by_write_date(fake_odoo, fake_woo):
@@ -190,6 +196,66 @@ def test_gallery_without_main_image(fake_odoo, fake_woo):
     _service(fake_odoo, fake_woo).run(full=True)
     images = fake_woo.products_by_sku["CAM-1"]["images"]
     assert images == [{"src": "http://odoo.test/web/image/product.image/6/image_1920"}]
+
+
+def test_category_hierarchy_synced_to_woo_product(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [_template(101, "CAM-1", public_categ_ids=[11])],
+        "product.public.category": [
+            {"id": 10, "name": "Cámaras", "parent_id": False},
+            {"id": 11, "name": "Filtros", "parent_id": [10, "Cámaras"]},
+        ],
+    }
+    _service(fake_odoo, fake_woo).run(full=True)
+
+    created = fake_woo.products_by_sku["CAM-1"]
+    filtros_id = created["categories"][0]["id"]
+    filtros = next(c for c in fake_woo.categories if c["id"] == filtros_id)
+    camaras = next(c for c in fake_woo.categories if c["id"] == filtros["parent"])
+    assert filtros["name"] == "Filtros"
+    assert camaras["name"] == "Cámaras"
+    assert camaras["parent"] == 0
+
+
+def test_category_with_unreadable_parent_does_not_hang(fake_odoo, fake_woo):
+    """Si `parent_id` apunta a una categoría que Odoo no devuelve en `read()`
+    (borrada, o de otra compañía sin acceso), no debe colgarse en loop infinito."""
+    fake_odoo.db = {
+        "product.template": [_template(101, "CAM-1", public_categ_ids=[11])],
+        "product.public.category": [
+            {"id": 11, "name": "Filtros", "parent_id": [999, "Inaccesible"]},
+        ],
+    }
+    result: dict = {}
+
+    def _run():
+        result["report"] = _service(fake_odoo, fake_woo).run(full=True)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+    assert not thread.is_alive(), "catalog sync colgado: parent_id no legible provoca loop infinito"
+    assert result["report"].created == 1
+    assert fake_woo.products_by_sku["CAM-1"]["categories"][0]["id"]
+
+
+def test_categories_key_omitted_when_no_categories(fake_odoo, fake_woo):
+    fake_odoo.db = {"product.template": [_template(101, "CAM-1")]}
+    _service(fake_odoo, fake_woo).run(full=True)
+    assert "categories" not in fake_woo.products_by_sku["CAM-1"]
+
+
+def test_tag_synced_to_woo_product(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [_template(101, "CAM-1", product_tag_ids=[20])],
+        "product.tag": [{"id": 20, "name": "Oferta"}],
+    }
+    _service(fake_odoo, fake_woo).run(full=True)
+
+    created = fake_woo.products_by_sku["CAM-1"]
+    tag_id = created["tags"][0]["id"]
+    assert fake_woo.tags[0]["id"] == tag_id
+    assert fake_woo.tags[0]["name"] == "Oferta"
 
 
 def test_resync_republishes_a_drafted_product(fake_odoo, fake_woo):

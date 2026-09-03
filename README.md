@@ -9,8 +9,9 @@ Integración **bidireccional** de nivel producción entre **Odoo Enterprise** (E
 
 ## ✨ Características
 
-- **Flujo 1 — Catálogo Odoo → WooCommerce:** productos, precios, stock, descripción,
-  **atributos globales** (para filtros nativos) y **ventas cruzadas** (cross-sell).
+- **Flujo 1 — Catálogo Odoo → WooCommerce:** productos, precios, stock, descripción, imágenes,
+  **categorías** (con jerarquía) y **etiquetas**, **atributos globales** (para filtros nativos)
+  y **accesorios recomendados** (upsells) en la ficha del producto.
 - **Flujo 2 — Pedidos WooCommerce → Odoo:** alta/búsqueda de cliente y creación de la
   orden de venta, vía un **webhook real** con **validación de firma HMAC**.
 - **Sincronización incremental** por `write_date` con estado persistido.

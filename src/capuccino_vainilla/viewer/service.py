@@ -16,6 +16,7 @@ from ..config import AppConfig
 from ..logging_config import get_logger
 from ..services.attribute_sync import AttributeSyncService
 from ..services.catalog_sync import CatalogSyncService
+from ..services.category_tag_sync import CategoryTagSyncService
 from ..services.order_import import OrderImportService
 
 # Campos de producto que mostramos desde Odoo.
@@ -153,6 +154,7 @@ class ViewerService:
     ) -> dict:
         service = CatalogSyncService(
             self._odoo(), self._woo(), AttributeSyncService(self._woo()),
+            CategoryTagSyncService(self._woo()),
             self._config.odoo.url,
             batch_size=self._config.runtime.batch_size, logger=self._log,
         )

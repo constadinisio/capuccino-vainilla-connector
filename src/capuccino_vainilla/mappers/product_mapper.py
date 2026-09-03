@@ -34,13 +34,20 @@ def _build_attributes(product: OdooProduct, attribute_ids: dict[str, int]) -> li
 def build_woo_product_payload(
     product: OdooProduct,
     attribute_ids: dict[str, int],
+    category_ids: dict[str, int] | None = None,
+    tag_ids: dict[str, int] | None = None,
 ) -> dict:
     """Mapea un producto de Odoo al payload de creación/actualización de Woo.
 
     Args:
         product: producto normalizado de Odoo.
         attribute_ids: mapa ``nombre_atributo.lower() -> id_atributo_global_woo``.
+        category_ids: mapa ``path_completo -> id_categoría_woo``
+            (ej. ``"Cámaras/Filtros" -> 55``).
+        tag_ids: mapa ``nombre_tag.lower() -> id_tag_woo``.
     """
+    category_ids = category_ids or {}
+    tag_ids = tag_ids or {}
     payload = {
         "name": product.name,
         "sku": product.sku,
@@ -60,4 +67,14 @@ def build_woo_product_payload(
     # cargada en Woo mientras el catálogo se completa gradualmente.
     if product.image_urls:
         payload["images"] = [{"src": url} for url in product.image_urls]
+    if product.categories:
+        payload["categories"] = [
+            {"id": category_ids[path]} for path in product.categories if path in category_ids
+        ]
+    if product.tags:
+        payload["tags"] = [
+            {"id": tag_ids[tag.strip().lower()]}
+            for tag in product.tags
+            if tag.strip().lower() in tag_ids
+        ]
     return payload

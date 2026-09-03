@@ -59,3 +59,37 @@ def test_images_included_when_present():
 def test_images_key_omitted_when_no_images():
     payload = build_woo_product_payload(_product(image_urls=()), {})
     assert "images" not in payload
+
+
+def test_categories_use_resolved_ids():
+    product = _product(categories=("Cámaras/Filtros",))
+    payload = build_woo_product_payload(product, {}, category_ids={"Cámaras/Filtros": 55})
+    assert payload["categories"] == [{"id": 55}]
+
+
+def test_category_without_resolved_id_is_skipped():
+    product = _product(categories=("Cámaras/Filtros",))
+    payload = build_woo_product_payload(product, {}, category_ids={})
+    assert payload["categories"] == []
+
+
+def test_categories_key_omitted_when_no_categories():
+    payload = build_woo_product_payload(_product(categories=()), {}, category_ids={})
+    assert "categories" not in payload
+
+
+def test_tags_use_resolved_ids():
+    product = _product(tags=("Oferta",))
+    payload = build_woo_product_payload(product, {}, tag_ids={"oferta": 7})
+    assert payload["tags"] == [{"id": 7}]
+
+
+def test_tag_without_resolved_id_is_skipped():
+    product = _product(tags=("Oferta",))
+    payload = build_woo_product_payload(product, {}, tag_ids={})
+    assert payload["tags"] == []
+
+
+def test_tags_key_omitted_when_no_tags():
+    payload = build_woo_product_payload(_product(tags=()), {}, tag_ids={})
+    assert "tags" not in payload

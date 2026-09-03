@@ -87,12 +87,16 @@ class FakeWoo:
         self.products_by_sku: dict[str, dict] = {}
         self.attributes: list[dict] = []
         self.terms: dict[int, list[dict]] = {}
+        self.categories: list[dict] = []
+        self.tags: list[dict] = []
         self.orders: dict[int, dict] = {}
         self.calls: list[tuple[str, str, dict]] = []
         self.fail_on_post_products = False
         self._next_pid = 200
         self._next_aid = 10
         self._next_tid = 100
+        self._next_cat_id = 300
+        self._next_tag_id = 400
 
     def preload_product(self, sku: str, woo_id: int, **extra) -> None:
         product = {"id": woo_id, "sku": sku, **extra}
@@ -101,6 +105,12 @@ class FakeWoo:
 
     def preload_attribute(self, name: str, attr_id: int) -> None:
         self.attributes.append({"id": attr_id, "name": name})
+
+    def preload_category(self, name: str, cat_id: int, parent: int = 0) -> None:
+        self.categories.append({"id": cat_id, "name": name, "parent": parent})
+
+    def preload_tag(self, name: str, tag_id: int) -> None:
+        self.tags.append({"id": tag_id, "name": name})
 
     def preload_order(self, order_id: int, order: dict) -> None:
         self.orders[order_id] = {"id": order_id, **order}
@@ -118,6 +128,20 @@ class FakeWoo:
         if endpoint.startswith("products/attributes/") and endpoint.endswith("/terms"):
             attr_id = int(endpoint.split("/")[2])
             return list(self.terms.get(attr_id, []))
+        if endpoint == "products/categories":
+            results = self.categories
+            if "parent" in params:
+                results = [c for c in results if c["parent"] == params["parent"]]
+            if params.get("search"):
+                needle = params["search"].strip().lower()
+                results = [c for c in results if c["name"].strip().lower() == needle]
+            return list(results)
+        if endpoint == "products/tags":
+            results = self.tags
+            if params.get("search"):
+                needle = params["search"].strip().lower()
+                results = [t for t in results if t["name"].strip().lower() == needle]
+            return list(results)
         if endpoint == "orders":
             return list(self.orders.values())
         if endpoint.startswith("orders/"):
@@ -150,6 +174,18 @@ class FakeWoo:
             term = {"id": tid, "name": data["name"]}
             self.terms.setdefault(attr_id, []).append(term)
             return term
+        if endpoint == "products/categories":
+            cid = self._next_cat_id
+            self._next_cat_id += 1
+            category = {"id": cid, "name": data["name"], "parent": data.get("parent", 0)}
+            self.categories.append(category)
+            return category
+        if endpoint == "products/tags":
+            tid = self._next_tag_id
+            self._next_tag_id += 1
+            tag = {"id": tid, "name": data["name"]}
+            self.tags.append(tag)
+            return tag
         return {}
 
     def put(self, endpoint: str, data: dict) -> Any:

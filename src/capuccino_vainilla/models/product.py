@@ -35,6 +35,8 @@ class OdooProduct:
     attributes: tuple[ProductAttribute, ...] = field(default_factory=tuple)
     accessory_template_ids: tuple[int, ...] = field(default_factory=tuple)
     image_urls: tuple[str, ...] = field(default_factory=tuple)
+    categories: tuple[str, ...] = field(default_factory=tuple)  # paths, ej. "Cámaras/Filtros"
+    tags: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def in_stock(self) -> bool:
