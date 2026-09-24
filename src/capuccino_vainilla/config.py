@@ -77,6 +77,28 @@ def _validate_url(key: str, url: str) -> str:
     return url.rstrip("/")
 
 
+def _load_sku_allowlist(path: str) -> frozenset[str] | None:
+    """Lee una lista blanca de SKUs (Referencia interna de Odoo) desde un
+    archivo de texto, una por línea (líneas vacías y que empiecen con '#' se
+    ignoran). ``path`` vacío => sin acotar (None, comportamiento histórico).
+    """
+    if not path:
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            skus = {
+                line.strip() for line in fh
+                if line.strip() and not line.strip().startswith("#")
+            }
+    except OSError as exc:
+        raise ConfigError(
+            f"No se pudo leer SYNC_SKU_ALLOWLIST_FILE='{path}': {exc}"
+        ) from exc
+    if not skus:
+        raise ConfigError(f"SYNC_SKU_ALLOWLIST_FILE='{path}' no contiene ningún SKU.")
+    return frozenset(skus)
+
+
 # --------------------------------------------------------------------------- #
 #  Modelos de configuración
 # --------------------------------------------------------------------------- #
@@ -119,6 +141,12 @@ class RuntimeConfig:
     log_level: str
     log_file: str
     state_file: str
+    # SKUs (Referencia interna de Odoo) a los que se acota TODA sincronización
+    # de catálogo (Flujo 1, incluido el watcher): excluye el resto del
+    # catálogo de Odoo. Pensado para publicar solo el subconjunto curado de
+    # una planilla (ej. GPinnacle), no todo lo vendible en Odoo.
+    # None => sin acotar (comportamiento histórico: todo sale_ok=True).
+    sku_allowlist: frozenset[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -174,6 +202,7 @@ def load_config(env_file: str | None = None) -> AppConfig:
         log_level=_get_optional("LOG_LEVEL", "INFO").upper(),
         log_file=_get_optional("LOG_FILE", "sync.log"),
         state_file=_get_optional("STATE_FILE", ".sync_state.json"),
+        sku_allowlist=_load_sku_allowlist(_get_optional("SYNC_SKU_ALLOWLIST_FILE", "")),
     )
     interval = _get_int("WATCH_INTERVAL", 30)
     if interval <= 0:

@@ -345,6 +345,14 @@ intervención manual). Pasos, una sola vez:
 
 ## ⚠️ Notas de mapeo (Odoo)
 
+- **Alcance del catálogo publicado:** por defecto se sincroniza *todo*
+  `product.template` con `sale_ok=True`. Si la tienda solo debe publicar un
+  subconjunto curado (ej. una planilla de productos aprobados, no el catálogo
+  entero de Odoo), configurá `SYNC_SKU_ALLOWLIST_FILE` con un archivo de SKUs
+  (`default_code`/Referencia interna, uno por línea). Se aplica en
+  `sync-catalog`, `watch` y el visor por igual; un SKU sacado de la lista se
+  despublica en Woo en el próximo ciclo del watcher, igual que una baja real
+  en Odoo.
 - **Accesorios:** se leen de `optional_product_ids` de `product.template`. Si tu instancia
   usa `accessory_product_ids`, agregalo a `ODOO_PRODUCT_FIELDS` y a `_read_accessory_skus`
   en `services/catalog_sync.py`.

@@ -10,11 +10,11 @@ from capuccino_vainilla.services.category_tag_sync import CategoryTagSyncService
 
 
 def _service(
-    fake_odoo, fake_woo, batch_size=50, odoo_base_url="http://odoo.test"
+    fake_odoo, fake_woo, batch_size=50, odoo_base_url="http://odoo.test", sku_allowlist=None
 ):
     return CatalogSyncService(
         fake_odoo, fake_woo, AttributeSyncService(fake_woo), CategoryTagSyncService(fake_woo),
-        odoo_base_url, batch_size=batch_size,
+        odoo_base_url, batch_size=batch_size, sku_allowlist=sku_allowlist,
     )
 
 
@@ -141,6 +141,27 @@ def test_run_with_explicit_ids_only_syncs_those(fake_odoo, fake_woo):
     assert "BBB" in fake_woo.products_by_sku
     assert "AAA" not in fake_woo.products_by_sku
     assert "CCC" not in fake_woo.products_by_sku
+
+
+def test_sku_allowlist_restricts_full_sync(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [
+            _template(101, "AAA"), _template(102, "BBB"), _template(103, "CCC"),
+        ]
+    }
+    report = _service(fake_odoo, fake_woo, sku_allowlist=frozenset({"BBB"})).run(full=True)
+    assert report.total == 1
+    assert "BBB" in fake_woo.products_by_sku
+    assert "AAA" not in fake_woo.products_by_sku
+    assert "CCC" not in fake_woo.products_by_sku
+
+
+def test_sku_allowlist_none_syncs_everything(fake_odoo, fake_woo):
+    fake_odoo.db = {
+        "product.template": [_template(101, "AAA"), _template(102, "BBB")]
+    }
+    report = _service(fake_odoo, fake_woo, sku_allowlist=None).run(full=True)
+    assert report.total == 2
 
 
 def test_unpublish_sets_draft_for_known_skus(fake_odoo, fake_woo):

@@ -71,6 +71,7 @@ class CatalogSyncService:
         odoo_base_url: str,
         batch_size: int = 50,
         logger: logging.Logger | None = None,
+        sku_allowlist: frozenset[str] | None = None,
     ):
         self._odoo = odoo
         self._woo = woo
@@ -80,6 +81,8 @@ class CatalogSyncService:
         self._batch_size = max(1, batch_size)
         self._log = logger or get_logger("catalog")
         self._sku_to_woo_id: dict[str, int] = {}  # caché SKU -> id producto Woo
+        # None => sin acotar (todo sale_ok=True). Ver RuntimeConfig.sku_allowlist.
+        self._sku_allowlist = sku_allowlist
 
     # -- Orquestación ------------------------------------------------------
 
@@ -103,6 +106,8 @@ class CatalogSyncService:
                 tras cada lote, para alimentar indicadores de progreso (visor).
         """
         domain: list = [("sale_ok", "=", True)]
+        if self._sku_allowlist is not None:
+            domain.append(("default_code", "in", sorted(self._sku_allowlist)))
         if ids is not None:
             domain.append(("id", "in", list(ids)))
         elif not full and since:

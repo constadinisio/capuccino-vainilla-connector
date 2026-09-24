@@ -20,6 +20,14 @@ def test_read_fingerprints_only_sale_ok(fake_odoo):
     assert fps[1] == {"sku": "A", "write_date": "2026-01-01 00:00:00", "qty": 5, "price": 10.0}
 
 
+def test_read_fingerprints_restricted_by_sku_allowlist(fake_odoo):
+    fake_odoo.db = {"product.template": [
+        _tmpl(1, "A"), _tmpl(2, "B"), _tmpl(3, "C"),
+    ]}
+    fps = ChangeDetector(fake_odoo, sku_allowlist=frozenset({"B"})).read_fingerprints()
+    assert set(fps.keys()) == {2}
+
+
 def test_diff_detects_changed_added_and_disappeared(fake_odoo):
     det = ChangeDetector(fake_odoo)
     snapshot = {

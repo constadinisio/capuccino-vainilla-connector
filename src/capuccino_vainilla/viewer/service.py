@@ -157,6 +157,7 @@ class ViewerService:
             CategoryTagSyncService(self._woo()),
             self._config.odoo.url,
             batch_size=self._config.runtime.batch_size, logger=self._log,
+            sku_allowlist=self._config.runtime.sku_allowlist,
         )
         report = service.run(full=full, since=None, limit=limit, on_progress=on_progress)
         return report.as_dict()

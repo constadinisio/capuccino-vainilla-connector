@@ -34,6 +34,7 @@ class OdooWooConnector:
         self.catalog = CatalogSyncService(
             self.odoo, self.woo, attribute_service, category_tag_service, config.odoo.url,
             batch_size=config.runtime.batch_size, logger=get_logger("catalog"),
+            sku_allowlist=config.runtime.sku_allowlist,
         )
         self.orders = OrderImportService(self.odoo, get_logger("orders"))
 

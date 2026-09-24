@@ -121,7 +121,10 @@ def _cmd_watch(config: AppConfig, args: argparse.Namespace) -> int:
     from .watcher.service import WatchService
 
     connector = OdooWooConnector(config)
-    detector = ChangeDetector(connector.odoo, batch_size=config.runtime.batch_size)
+    detector = ChangeDetector(
+        connector.odoo, batch_size=config.runtime.batch_size,
+        sku_allowlist=config.runtime.sku_allowlist,
+    )
     store = SnapshotStore(config.watcher.state_file)
     service = WatchService(detector, connector.catalog, store,
                            initial_full=config.watcher.initial_full)

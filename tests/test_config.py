@@ -105,3 +105,32 @@ def test_watch_interval_zero_raises(monkeypatch):
     _set_env(monkeypatch, overrides={"WATCH_INTERVAL": "0"})
     with pytest.raises(ConfigError, match="WATCH_INTERVAL"):
         load_config()
+
+
+def test_sku_allowlist_unset_is_none(monkeypatch):
+    _set_env(monkeypatch)
+    config = load_config()
+    assert config.runtime.sku_allowlist is None
+
+
+def test_sku_allowlist_loads_file(monkeypatch, tmp_path):
+    allowlist_file = tmp_path / "skus.txt"
+    allowlist_file.write_text("CAMAID001\n# comentario\n\nLENAID002\nCAMAID001\n", encoding="utf-8")
+    _set_env(monkeypatch, overrides={"SYNC_SKU_ALLOWLIST_FILE": str(allowlist_file)})
+    config = load_config()
+    assert config.runtime.sku_allowlist == frozenset({"CAMAID001", "LENAID002"})
+
+
+def test_sku_allowlist_missing_file_raises(monkeypatch, tmp_path):
+    missing = tmp_path / "no-existe.txt"
+    _set_env(monkeypatch, overrides={"SYNC_SKU_ALLOWLIST_FILE": str(missing)})
+    with pytest.raises(ConfigError, match="SYNC_SKU_ALLOWLIST_FILE"):
+        load_config()
+
+
+def test_sku_allowlist_empty_file_raises(monkeypatch, tmp_path):
+    empty = tmp_path / "vacio.txt"
+    empty.write_text("\n# solo comentarios\n\n", encoding="utf-8")
+    _set_env(monkeypatch, overrides={"SYNC_SKU_ALLOWLIST_FILE": str(empty)})
+    with pytest.raises(ConfigError, match="SYNC_SKU_ALLOWLIST_FILE"):
+        load_config()

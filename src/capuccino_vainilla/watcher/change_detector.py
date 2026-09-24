@@ -28,14 +28,25 @@ class ChangeSet:
 class ChangeDetector:
     """Lee huellas de Odoo y las compara contra un snapshot."""
 
-    def __init__(self, odoo: OdooApi, batch_size: int = 50, logger: logging.Logger | None = None):
+    def __init__(
+        self,
+        odoo: OdooApi,
+        batch_size: int = 50,
+        logger: logging.Logger | None = None,
+        sku_allowlist: frozenset[str] | None = None,
+    ):
         self._odoo = odoo
         self._batch_size = max(1, batch_size)
         self._log = logger or get_logger("watcher.detector")
+        # None => sin acotar (todo sale_ok=True). Ver RuntimeConfig.sku_allowlist.
+        self._sku_allowlist = sku_allowlist
 
     def read_fingerprints(self) -> dict[int, dict]:
-        """Devuelve ``{id: {"sku","write_date","qty","price"}}`` de los `sale_ok`."""
-        domain = [("sale_ok", "=", True)]
+        """Devuelve ``{id: {"sku","write_date","qty","price"}}`` de los `sale_ok`
+        (acotado a ``sku_allowlist`` si está configurado)."""
+        domain: list = [("sale_ok", "=", True)]
+        if self._sku_allowlist is not None:
+            domain.append(("default_code", "in", sorted(self._sku_allowlist)))
         total = self._odoo.search_count("product.template", domain)
         result: dict[int, dict] = {}
         offset = 0
