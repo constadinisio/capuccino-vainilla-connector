@@ -36,5 +36,9 @@ class MappingError(ConnectorError):
     """No se pudo transformar/validar un registro entre ambos sistemas."""
 
 
+class SkuExportError(ConnectorError):
+    """No se pudo extraer la lista de SKUs desde la planilla de origen."""
+
+
 class WebhookSignatureError(ConnectorError):
     """Firma HMAC del webhook ausente o inválida."""

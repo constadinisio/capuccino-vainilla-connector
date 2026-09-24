@@ -17,6 +17,7 @@ dependencies = [
     "requests>=2.32.0",        # Transporte HTTP
     "fastapi>=0.110.0",        # Servidor de webhooks
     "uvicorn[standard]>=0.29.0",  # ASGI server para FastAPI
+    "openpyxl>=3.1.0",         # Lectura de la planilla .xlsx (export-sku-allowlist)
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,7 @@ dev = [
 [project.scripts]
 capuccino-vainilla = "capuccino_vainilla.cli:main"
 seed-odoo = "capuccino_vainilla.seeder.cli:main"
+export-sku-allowlist = "capuccino_vainilla.sku_export.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
